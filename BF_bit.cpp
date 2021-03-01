@@ -5,6 +5,9 @@ using namespace std;
 #include "hash/md5.h"
 #include "hash/murmurhash.h"
 //#include "hash/crc32c.h"
+
+#include "hash/sha-256.h"
+
 #include <functional>
 #include <string>
 
@@ -33,6 +36,14 @@ string BFHash::getFilterUnitwiseHashDigest(int filter_unit_no){
    return get_hash_digest(key_, filter_unit_hash_funcs_[filter_unit_no], filter_unit_seeds_[filter_unit_no]);
 }
 
+static void hash_to_string(char string[65], const uint8_t hash[32])
+{
+	size_t i;
+	for (i = 0; i < 32; i++) {
+		string += sprintf(string, "%02x", hash[i]);
+	}
+}
+
 string BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
     char buffer[32];
     memset(buffer, 0, 32);
@@ -42,9 +53,15 @@ string BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
         case MD5:
             result = md5(key);
             break;
-        case SHA2:
+        case SHA2:{
             result = md5(key);
+            // uint8_t hash[32];
+	        // char hash_string[65];
+            // const uint8_t * a = (const uint8_t*)key.c_str();
+            // calc_sha_256(hash, a, result.length());
             break;
+        }
+            
         case MurMurhash:
             sprintf(buffer, "%x",MurmurHash2(key.c_str(), key.size(), seed));
             result = buffer;
