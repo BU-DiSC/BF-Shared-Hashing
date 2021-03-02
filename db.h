@@ -44,9 +44,9 @@ private:
 	int data_size;
 
 	vector<vector<string> > fence_pointers;
-
-	vector<vector<vector< vector<unsigned char> > > > bf_prime;
-	vector<vector<vector< string > > > blk_fp_prime;
+	unsigned char**** bf_prime;
+	char**** blk_fp_prime;
+	int** blk_size_prime;
     // stats
  public:
 	// get starting timepoint
@@ -86,20 +86,21 @@ private:
 
 	string Get( string key, bool * result );
 	string GetLevel( int i, BFHash & bfHash, string key, bool * result );
-    bool QueryFilter( int i, int bf_no, vector<string> & hash_digests, string key);
-    bool QueryModule( int i, int blo, int bf_no, string & m_dataHash, string & key);
+    bool QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, string key);
+    bool QueryModule( int i, int blo, int bf_no, uint64_t m_dataHash, string & key);
 
 
-	void read_bf(string filename, vector<unsigned char> & bf, int size);
-	void flushBFfile(string filename, vector<unsigned char> * filterunit);	
-	void read_filterunits(string filename, vector<unsigned char> filterunit);
+	void read_bf(string filename, unsigned char* bf, int size);
+	void flushBFfile(string filename, unsigned char* filterunit, uint32_t size);	
 	void flushfile( string file, vector<string>* table);
+	void flushIndexes( string file, char** indexes, int size, int key_size);
 	int GetFromIndex( int i, int bf_no, string key);
-	void read_index( string filename, vector<string> & index );
+	char** read_index( string filename, int & index_size);
 	string GetFromData( int i, int bf_no, int index_pos, string key, bool * result );
 	int read_data ( string filename, int pos, int key_size, vector<string> & data_block );
 
 	int binary_search(string key, vector<string> & fence_pointer);
+	int binary_search(string key, char** indexes, int size);
 
 	void SetTreeParam();
 	void loadBFAndIndex();

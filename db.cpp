@@ -175,44 +175,50 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 		}
 	}
 	file_fence.close();
-	bf_prime.resize(num_levels);
-	blk_fp_prime.resize(num_levels);
+	bf_prime = (unsigned char****) malloc  ( num_levels * sizeof(unsigned char***));
+	blk_fp_prime = (char****) malloc  ( num_levels * sizeof(char***));
+	blk_size_prime = (int**) malloc (num_levels*sizeof(int*));
 	cout << "total lv " << num_levels << endl;
 	for( int l = 0; l < num_levels; l++){
 		cout << "lv " << l << endl;
-		bf_prime[l] = vector<vector< vector<unsigned char> > > ();
-		blk_fp_prime[l] = vector<vector< string > > ();
 		vector<vector<string> > keys_one_level = reallocated_keys[l];
 		int num_sst = keys_one_level.size();
+		bf_prime[l] = (unsigned char***) malloc (num_sst*sizeof(unsigned char**));
+		blk_fp_prime[l] = (char***) malloc (num_sst*sizeof(char**));
+		blk_size_prime[l] = (int*) malloc (num_sst*sizeof(int));
 		file_settings << num_sst << endl;
 		for(int sst_index = 0; sst_index < num_sst; sst_index++){
 			vector<string> keys_one_sst = keys_one_level[sst_index];
-			vector< vector<unsigned char> > sst_bf;
+			unsigned char** sst_bf = (unsigned char**) malloc (num_filter_units*sizeof(unsigned char*));
 			string sst_bf_prefix = bf_dir + "level_" + to_string(l) + "-sst_" + to_string(sst_index);
 
 			for(int blo = 0; blo < num_filter_units; blo++){
 				string sst_bf_filename = sst_bf_prefix + "_" + to_string(blo) +".txt";
 				//cout << sst_bf_filename << endl;
-				vector<unsigned char> blo_bf (filter_unit_byte, 0);
 				int end = keys_one_sst.size();
+				unsigned char* blo_bf = (unsigned char*) malloc (filter_unit_byte*sizeof(unsigned char));
 				for( int i=0 ; i <end ; i++){
-					pgm_BF(keys_one_sst[i], l, blo, filter_unit_size, filter_unit_index, &blo_bf);
+					pgm_BF(keys_one_sst[i], l, blo, filter_unit_size, filter_unit_index, blo_bf);
 				}
-				flushBFfile(sst_bf_filename, &blo_bf);
-				sst_bf.push_back(blo_bf);
+				flushBFfile(sst_bf_filename, blo_bf, filter_unit_byte);
+				sst_bf[blo] = blo_bf;
 			}
-			bf_prime[l].push_back(sst_bf);
+			bf_prime[l][sst_index] = sst_bf;
 
 			// fence pointers
 			
 			string sst_index_filename = index_dir + "level_" + to_string(l) + "-sst_" + to_string(sst_index) + ".txt";
 			// building index
-			vector<string> index_one_sst;
-			for( int i=0 ; i<keys_one_sst.size() ; i+=B ){
-				index_one_sst.push_back(keys_one_sst[i]);
+			char** index_one_sst = (char**) malloc (ceil(keys_one_sst.size()/B)*sizeof(char*));
+			int j = 0;
+			for( int i=0; i<keys_one_sst.size() ; i+=B ){
+				index_one_sst[j] = (char *) malloc ((K+1)*sizeof(char));
+				strcpy(index_one_sst[j], keys_one_sst[i].c_str());
+				j++;
 			}
-			blk_fp_prime[l].push_back(index_one_sst);
-			flushfile(sst_index_filename, &index_one_sst);
+			blk_fp_prime[l][sst_index] = index_one_sst;
+			blk_size_prime[l][sst_index] = j;
+			flushIndexes(sst_index_filename, index_one_sst, j, K);
 			string sst_data_filename = data_dir + "level_" + to_string(l) + "-sst_" + to_string(sst_index) + ".txt";
 			for( int i=0 ; i<keys_one_sst.size() ; i++ ){
 				keys_one_sst[i].resize(E, '0');
@@ -264,7 +270,7 @@ string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 		return "";
 	}
 
-	vector<string> hash_digests;
+	vector<uint64_t> hash_digests;
 	bfHash.getLevelwiseHashDigest(i, hash_digests);
 
 	bool bf_result = QueryFilter( i, bf_no, hash_digests, key);
@@ -293,7 +299,7 @@ string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 	return data;
 }
 
-bool db::QueryFilter( int i, int bf_no, vector<string> & hash_digests, string key )
+bool db::QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, string key )
 {
 	bool result = true;
 	
@@ -310,12 +316,12 @@ bool db::QueryFilter( int i, int bf_no, vector<string> & hash_digests, string ke
 	return result;
 }
 
-bool db::QueryModule( int i, int bf_no, int blo, string & m_dataHash, string & key )
+bool db::QueryModule( int i, int bf_no, int blo, uint64_t m_dataHash, string & key )
 {
     int * ind_dec;
     ind_dec = (int * )malloc( filter_unit_index * sizeof(int));
 	get_index(m_dataHash, filter_unit_index, filter_unit_size, ind_dec );
-    vector<unsigned char> filter_unit = bf_prime[i][bf_no][blo];
+    unsigned char* filter_unit = bf_prime[i][bf_no][blo];
     for( int k=0 ; k<filter_unit_index ; k++ ){
     	auto bf_start = high_resolution_clock::now(); 
     	//unsigned int refBit = 1;
@@ -335,10 +341,10 @@ bool db::QueryModule( int i, int bf_no, int blo, string & m_dataHash, string & k
 
 int db::GetFromIndex( int l, int bf_no, string key )
 {
-	vector <string> index = blk_fp_prime[l][bf_no];
+	char** index = blk_fp_prime[l][bf_no];
 
 	auto bs_start = high_resolution_clock::now();
-	int index_pos = binary_search(key, index);
+	int index_pos = binary_search(key, index, blk_size_prime[l][bf_no]);
 	auto bs_end   = high_resolution_clock::now();
 	bs_duration += duration_cast<microseconds>(bs_end - bs_start);	
 	//cout << key << " " << l << " " << index_pos << endl;
@@ -393,14 +399,10 @@ int db::read_data ( string filename, int pos, int key_size, vector<string> & dat
 	data_block.resize(B, "");
 
 	//auto data_start = high_resolution_clock::now();
-	read( fd, buf, DB_PAGE_SIZE );
+	//read( fd, buf, DB_PAGE_SIZE );
 	//auto data_end   = high_resolution_clock::now();
 	//data_duration += duration_cast<microseconds>(data_end - data_start);
 
-	int size;
-	int entry_size;
-	memcpy(&size, buf, sizeof(unsigned int));	
-	memcpy(&entry_size, buf+sizeof(unsigned int), sizeof(unsigned int));	
       
 	int offset = pos*B*E;
     // Moving pointer
@@ -413,6 +415,7 @@ int db::read_data ( string filename, int pos, int key_size, vector<string> & dat
 	//data_duration += duration_cast<microseconds>(data_end - data_start);
 
 	//int key_size;
+	int entry_size = E;
 	char* tmp_buf = (char*) malloc(entry_size+1);
 	offset = 0;
 	tmp_buf[entry_size] = '\0';
@@ -448,6 +451,39 @@ int db::read_data ( string filename, int pos, int key_size, vector<string> & dat
 
 	return 0;
 }
+
+int db::binary_search(string key, char** indexes, int size)
+{
+	int len = size;
+	if(len == 0){return -1;}
+	if(len == 1){return 0;}
+	int start = 0;
+	int end = len - 1;
+	int mid;
+
+	//for (int i=0 ; i<len ; i++){
+	//	cout << fence_pointer[i] << endl;;
+	//}
+
+	if(strcmp(key.c_str(), indexes[start]) < 0){ return -1;}
+	if(strcmp(key.c_str(), indexes[end]) > 0){ return -1;}
+
+	while(end - start > 1){
+		mid = (start + end)/2;
+		if(strcmp(key.c_str(), indexes[mid])< 0){
+			end = mid;
+		} 
+		else if(strcmp(key.c_str(), indexes[mid])  == 0){
+			return mid;
+		}
+		else{
+			start = mid;
+		}
+	}
+	return start;
+}
+
+
 
 int db::binary_search(string key, vector<string> & fence_pointer)
 {
@@ -540,27 +576,30 @@ void db::split_keys( vector<string> table_in, vector<vector<vector<string> > > &
 }
 
 void db::loadBFAndIndex(){
-	bf_prime.resize(num_levels);
-	blk_fp_prime.resize(num_levels);
+	bf_prime = (unsigned char****) malloc  ( num_levels * sizeof(unsigned char***));
+	blk_fp_prime = (char****) malloc  ( num_levels * sizeof(char***));
+	blk_size_prime = (int**) malloc (num_levels*sizeof(int*));
 	for(int i = 0; i < num_levels; i++){
-		bf_prime[i] = vector<vector< vector<unsigned char> > > ();
-		blk_fp_prime[i] = vector<vector< string > > ();
+		bf_prime[i] = (unsigned char***) malloc (num_sstPerLevel[i]*sizeof(unsigned char**));
+		blk_fp_prime[i] = (char***) malloc (num_sstPerLevel[i]*sizeof(char**));
+		blk_size_prime[i] = (int*) malloc (num_sstPerLevel[i]*sizeof(int));
 
 		for(int j = 0; j < num_sstPerLevel[i]; j++){
-			vector<string> index;
 			string sst_index_filename = index_dir + "level_" + to_string(i) + "-sst_" + to_string(j) + ".txt";
-			read_index(sst_index_filename, index);
-			blk_fp_prime[i].push_back(index);
+			int index_size = 0;
+			char** index = read_index(sst_index_filename, index_size);
+			blk_fp_prime[i][j] = index;
+			blk_size_prime[i][j] = index_size;
 
-			vector< vector<unsigned char> > sst_bf;
+			unsigned char** sst_bf = (unsigned char**) malloc (num_filter_units*sizeof(unsigned char*));
 
 			for(int k = 0; k < num_filter_units; k++){
-				vector<unsigned char> filterunit(filter_unit_byte, 0);	
 				string sst_bf_filename = bf_dir + "level_" + to_string(i) + "-sst_" + to_string(j) + "_" + to_string(k) + ".txt";
-				read_bf(sst_bf_filename, filterunit, filter_unit_byte);
-				sst_bf.push_back(filterunit);
+				unsigned char* blo_bf = (unsigned char*) malloc (filter_unit_byte*sizeof(unsigned char));
+				read_bf(sst_bf_filename, blo_bf, filter_unit_byte);
+				sst_bf[k] = blo_bf;
 			}
-			bf_prime[i].push_back(sst_bf);
+			bf_prime[i][j] = sst_bf;
 		}
 	}
 
@@ -603,20 +642,40 @@ void db::split_keys_sst(int sst_capacity, vector<string> keys_one_level, vector<
 	fence_pointer.push_back(keys_one_level.back());	
 }
 
-void db::flushBFfile(string filename, vector<unsigned char> * sst_bf_p){
+void db::flushBFfile(string filename, unsigned char* sst_bf_p, uint32_t size){
 	ofstream outfile(filename, ios::out);
 	char buffer[sizeof(unsigned int)];
 	memset(buffer, 0, sizeof(unsigned int));
 	
-	for(int i = 0; i < sst_bf_p->size(); i++){
-		memcpy(buffer, &(sst_bf_p->at(i)), sizeof(unsigned char));
+	for(int i = 0; i < size; i++){
+		memcpy(buffer, &(sst_bf_p[i]), sizeof(unsigned char));
 		outfile.write(buffer, sizeof(unsigned char));
 		memset(buffer, 0, sizeof(unsigned char));
 	}	
 	outfile.close();
 
 }
+void db::flushIndexes( string filename, char** indexes, int size, int key_size){
+	ofstream outfile(filename, ios::out);
+	char buffer[DB_PAGE_SIZE];
 
+	memcpy(buffer, &size, sizeof(unsigned int));
+	outfile.write(buffer, sizeof(unsigned int));
+	memset(buffer, 0, sizeof(unsigned int));
+
+	memcpy(buffer, &key_size, sizeof(unsigned int));
+	outfile.write(buffer, sizeof(unsigned int));
+	memset(buffer, 0, sizeof(unsigned int));
+
+	memset(buffer, 0, DB_PAGE_SIZE-2*sizeof(unsigned int));
+	outfile.write(buffer, DB_PAGE_SIZE-2*sizeof(unsigned int));
+
+	for(int i = 0 ;i < size; i++){
+		memcpy(buffer, indexes[i], key_size);
+		outfile.write(buffer, key_size);
+		memset(buffer, 0, key_size);
+	}
+}
 void db::flushfile( string filename, vector<string>* table){
 	ofstream outfile(filename, ios::out);
 	char buffer[DB_PAGE_SIZE];
@@ -671,7 +730,7 @@ void db::PrintStat()
 	return;
 }
 
-void db::read_bf(string filename, vector<unsigned char> & bf, int size){
+void db::read_bf(string filename, unsigned char* bf_buffer, int size){
 	int flags = O_RDWR | O_DIRECT;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
 
@@ -685,8 +744,6 @@ void db::read_bf(string filename, vector<unsigned char> & bf, int size){
 	unsigned char* buffer_;	
 	posix_memalign((void**)&buffer_,DB_PAGE_SIZE,DB_PAGE_SIZE);
 	memset(buffer_, 0, DB_PAGE_SIZE);
-	bf.clear();
-    	char* bf_buffer = new char[size];
 
 	for(int i = 0; i < size; i++){
 		if ( i%DB_PAGE_SIZE == 0){
@@ -695,18 +752,16 @@ void db::read_bf(string filename, vector<unsigned char> & bf, int size){
 		}
 		memcpy(bf_buffer+i, buffer_+(i%DB_PAGE_SIZE), sizeof(unsigned char));
 	}
-       	bf = vector<unsigned char>(bf_buffer, bf_buffer+size); 
 	//cout << "string " << blo_bf.size() << endl;
 	//for(int i = 0; i < blo_bf.size(); i++){
 	//	cout << hex << (unsigned int)blo_bf[i] << endl;
 	//}
-    	delete bf_buffer;
 
 	if(fd_ > 0)
 		close( fd_ );	
 }
 
-void db::read_index( string filename, vector<string> & index )
+char** db::read_index( string filename, int & index_size)
 {
 	int flags = O_RDWR | O_DIRECT | O_SYNC;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
@@ -715,7 +770,7 @@ void db::read_index( string filename, vector<string> & index )
 	if (fd <= 0) {
 		cout << "Cannot open partiton file " << filename << endl;
     	printf("Error %s\n", strerror(errno));
-		return;
+		return nullptr;
 	}
 
 	char* buf;
@@ -727,42 +782,40 @@ void db::read_index( string filename, vector<string> & index )
 	int size;
 	int key_size;
 	memcpy(&size, buf, sizeof(unsigned int));	
+	index_size = size;
 	memcpy(&key_size, buf+sizeof(unsigned int), sizeof(unsigned int));	
 
 	int offset = 0;
-	char* tmp_buf = (char*) malloc(key_size+1);
-	tmp_buf[key_size] = '\0';
 
 	memset(buf, 0, DB_PAGE_SIZE);
 	read( fd, buf, DB_PAGE_SIZE );
 
-	index.clear();
-	index.resize(size, "");
-	index.resize(size+1, "");
+	char** index = (char**) malloc((size+1)*sizeof(char*));
 	for(int i = 0; i < size; i++){
+		index[i] = (char*) malloc ((key_size+1)*sizeof(char));
 		if(offset + key_size >= DB_PAGE_SIZE){
 			unsigned int inner_key_offset = 0;
 			if(offset < DB_PAGE_SIZE){
-				memcpy(tmp_buf, buf+offset,DB_PAGE_SIZE-offset);
+				memcpy(index[i], buf+offset,DB_PAGE_SIZE-offset);
 				inner_key_offset = DB_PAGE_SIZE-offset;
 			}
 		
 			read( fd, buf, DB_PAGE_SIZE );
 
 			offset = key_size - inner_key_offset;	
-			memcpy(tmp_buf+inner_key_offset, buf, offset);
+			memcpy(index[i]+inner_key_offset, buf, offset);
 		}else{
-			memcpy(tmp_buf, buf+offset, key_size);
+			memcpy(index[i], buf+offset, key_size);
 			offset += key_size;
 		}
-
-		index[i] = string(tmp_buf);
-		memset(tmp_buf, 0, key_size);
+		index[i][key_size] = '\0';
+		
 	}
-
-	index[size] = std::string(key_size, 'z');
-	free(tmp_buf);
+	index[size] = (char*) malloc ((size+1)*sizeof(char));
+	memset(index[size], 'z', key_size);
+	index[size][key_size] = '\0';
 
 	free( buf );
 	close( fd );
+	return index;
 }

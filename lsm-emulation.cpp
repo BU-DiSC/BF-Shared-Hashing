@@ -96,7 +96,6 @@ int main(int argc, char * argv[])
 		input_str = table_out[i];
 		//cout << input_str << endl;
 		result = false;
-
 		database.Get( input_str, &result );
 
 		input_str.clear();

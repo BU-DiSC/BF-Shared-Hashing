@@ -68,6 +68,9 @@ int options::parse( int argc, char *argv[] )
   bits_per_key = bits_per_key_cmd? args::get(bits_per_key_cmd) : 10;
   elastic_filters = elastic_filters_cmd? args::get(elastic_filters_cmd) : false;
   num_filterunits = num_filterunits_cmd? args::get(num_filterunits_cmd) : 2;
+  if(!elastic_filters){
+     num_filterunits = 1;
+  }
 
   share_hash_across_levels = share_hash_across_levels_cmd ? args::get(share_hash_across_levels_cmd): false;
   share_hash_across_filter_units = share_hash_across_filter_units_cmd ? args::get(share_hash_across_filter_units_cmd) : false;
