@@ -5,6 +5,9 @@ using namespace std;
 #include "hash/md5.h"
 #include "hash/murmurhash.h"
 //#include "hash/crc32c.h"
+
+#include "hash/sha-256.h"
+
 #include <functional>
 #include <string>
 
@@ -33,6 +36,13 @@ uint64_t BFHash::getFilterUnitwiseHashDigest(int filter_unit_no){
    return get_hash_digest(key_, filter_unit_hash_funcs_[filter_unit_no], filter_unit_seeds_[filter_unit_no]);
 }
 
+void hash_to_string(char string[65], const uint8_t hash[32])
+{
+	size_t i;
+	for (i = 0; i < 32; i++) {
+		string += sprintf(string, "%02x", hash[i]);
+	}
+}
 uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
     uint64_t result = 0;
     auto hash_start = high_resolution_clock::now();
@@ -40,9 +50,14 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
         case MD5:
             result = stoull(md5(key),nullptr, 16);
             break;
-        case SHA2:
-            result = MurmurHash2(key.c_str(), key.size(), seed);
+        case SHA2:{
+            uint8_t hash[32];
+            const uint8_t * a = (const uint8_t*)key.c_str();
+            calc_sha_256(hash, a, key.length());
+	    result = ((hash[0] << 24) + (hash[1] << 16) + (hash[2] << 8) + hash[3]) << 32 + (hash[4] << 24) + (hash[5] << 16) + (hash[6] << 8) + hash[7];
             break;
+        }
+            
         case MurMurhash:
             result = MurmurHash2(key.c_str(), key.size(), seed);
             break;
@@ -67,21 +82,22 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
 
 void BFHash::getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests){
         if(!share_hash_across_levels_ || hash_digests_.size() == 0 || hash_digests_[0] == 0){
+	    hash_digests.resize(num_filter_units_);
 	    if(share_hash_across_filter_units_ == 0){
                 for(int i = 0; i < num_filter_units_; i++){
-                    hash_digests.push_back(getFilterUnitwiseHashDigest(i));
+                    hash_digests[i] = getFilterUnitwiseHashDigest(i);
                 }
             }else if(share_hash_across_filter_units_ == 1){
-                hash_digests.push_back(getFilterUnitwiseHashDigest(0));
+                hash_digests[0] = getFilterUnitwiseHashDigest(0);
                 uint64_t last_hash_digest = hash_digests[0];
                 for(int i = 1; i < num_filter_units_; i++){
                    last_hash_digest = last_hash_digest + (last_hash_digest << 17 | last_hash_digest >> 15); 
-                   hash_digests.push_back(last_hash_digest);
+                   hash_digests[i] = last_hash_digest;
                 }
             }else{
                 uint64_t hash_digest1 = getFilterUnitwiseHashDigest(0);
                 if(num_filter_units_ == 1){
-                   hash_digests.push_back(hash_digest1);
+                   hash_digests[0] = hash_digest1;
                 }else{
 		   HashType ht = filter_unit_hash_funcs_[0];
 		   HashType ht2 = MD5;
@@ -93,7 +109,7 @@ void BFHash::getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests){
                    uint32_t seed = filter_unit_seeds_[0];
 	           uint64_t hash_digest2 = get_hash_digest(key_, ht2, seed + (seed << 17 | seed >> 15));
                    for(int i = 0; i < num_filter_units_; i++){
-                       hash_digests.push_back(hash_digest1 + i*hash_digest2); 
+                       hash_digests[i] = hash_digest1 + i*hash_digest2;
                    }
                 }
                 

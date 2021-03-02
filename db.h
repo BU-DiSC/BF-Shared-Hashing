@@ -95,7 +95,8 @@ private:
 	void flushfile( string file, vector<string>* table);
 	void flushIndexes( string file, char** indexes, int size, int key_size);
 	int GetFromIndex( int i, int bf_no, string key);
-	char** read_index( string filename, int & index_size);
+	int read_index_size(string filename);
+	void read_index( string filename, int index_size, char** index);
 	string GetFromData( int i, int bf_no, int index_pos, string key, bool * result );
 	int read_data ( string filename, int pos, int key_size, vector<string> & data_block );
 

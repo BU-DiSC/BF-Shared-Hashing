@@ -586,8 +586,12 @@ void db::loadBFAndIndex(){
 
 		for(int j = 0; j < num_sstPerLevel[i]; j++){
 			string sst_index_filename = index_dir + "level_" + to_string(i) + "-sst_" + to_string(j) + ".txt";
-			int index_size = 0;
-			char** index = read_index(sst_index_filename, index_size);
+			int index_size = read_index_size(sst_index_filename);	
+			char** index = (char**) malloc((index_size+1)*sizeof(char*));
+			for(int k = 0; k <= index_size; k++){
+				index[k] = (char*) malloc ((K+1)*sizeof(char));
+			}
+			read_index(sst_index_filename, index_size, index);
 			blk_fp_prime[i][j] = index;
 			blk_size_prime[i][j] = index_size;
 
@@ -761,8 +765,7 @@ void db::read_bf(string filename, unsigned char* bf_buffer, int size){
 		close( fd_ );	
 }
 
-char** db::read_index( string filename, int & index_size)
-{
+int db::read_index_size( string filename ){
 	int flags = O_RDWR | O_DIRECT | O_SYNC;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
 
@@ -770,7 +773,7 @@ char** db::read_index( string filename, int & index_size)
 	if (fd <= 0) {
 		cout << "Cannot open partiton file " << filename << endl;
     	printf("Error %s\n", strerror(errno));
-		return nullptr;
+		return 0;
 	}
 
 	char* buf;
@@ -784,15 +787,39 @@ char** db::read_index( string filename, int & index_size)
 	memcpy(&size, buf, sizeof(unsigned int));	
 	index_size = size;
 	memcpy(&key_size, buf+sizeof(unsigned int), sizeof(unsigned int));	
+	free( buf );
+	if(fd > 0)
+		close( fd );	
+	return size;
+}
+
+void db::read_index( string filename, int size, char** index)
+{
+	int flags = O_RDWR | O_DIRECT | O_SYNC;
+	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
+
+	int fd = open(filename.c_str(), flags, mode );
+	if (fd <= 0) {
+		cout << "Cannot open partiton file " << filename << endl;
+    	printf("Error %s\n", strerror(errno));
+		return;
+	}
+
+	char* buf;
+	posix_memalign((void**)&buf,getpagesize(),DB_PAGE_SIZE);
+
+	memset(buf, 0, DB_PAGE_SIZE);
+	read( fd, buf, DB_PAGE_SIZE );
+	
+	int key_size;
+	memcpy(&key_size, buf+sizeof(unsigned int), sizeof(unsigned int));	
 
 	int offset = 0;
 
 	memset(buf, 0, DB_PAGE_SIZE);
 	read( fd, buf, DB_PAGE_SIZE );
 
-	char** index = (char**) malloc((size+1)*sizeof(char*));
 	for(int i = 0; i < size; i++){
-		index[i] = (char*) malloc ((key_size+1)*sizeof(char));
 		if(offset + key_size >= DB_PAGE_SIZE){
 			unsigned int inner_key_offset = 0;
 			if(offset < DB_PAGE_SIZE){
@@ -811,11 +838,10 @@ char** db::read_index( string filename, int & index_size)
 		index[i][key_size] = '\0';
 		
 	}
-	index[size] = (char*) malloc ((size+1)*sizeof(char));
 	memset(index[size], 'z', key_size);
 	index[size][key_size] = '\0';
 
 	free( buf );
 	close( fd );
-	return index;
+	return;
 }
