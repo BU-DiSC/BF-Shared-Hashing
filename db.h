@@ -47,6 +47,7 @@ private:
 	unsigned char**** bf_prime;
 	char**** blk_fp_prime;
 	int** blk_size_prime;
+	vector<uint64_t> hash_digests;
     // stats
  public:
 	// get starting timepoint

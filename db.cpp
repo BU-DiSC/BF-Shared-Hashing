@@ -54,6 +54,8 @@ db::db( options op )
     bpk = op.bits_per_key;
     mod_bf = op.elastic_filters;
     num_filter_units = op.num_filterunits;
+    hash_digests = vector<uint64_t> (num_filter_units, 0);
+    BFHash::hash_digests_ = vector<uint64_t> (num_filter_units, 0);
 
     int bf_size = (buffer_size * bpk);
 	int bf_index = (int)floor(0.693*bpk + 0.5);
@@ -157,14 +159,14 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 		system(data_command.c_str());
 		system(index_command.c_str());
 	}
-
+	
 	ofstream file_settings (settings_file, ios::out);
 	file_settings << P << endl;
 	file_settings << B << endl;
 	file_settings << E << endl;
 	file_settings << K << endl;
 	file_settings << num_filter_units << endl;
-
+	hash_digests = vector<uint64_t> (num_filter_units, 0);
 	file_settings << num_levels << endl;
 
 	ofstream file_fence(fence_file, ios::out);
@@ -249,7 +251,8 @@ string db::Get( string key, bool * result )
 	}	
 	num_lookups++;
 	*result = false;
-
+	BFHash::reset = true;
+	
 	return "";
 }
 
@@ -270,7 +273,6 @@ string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 		return "";
 	}
 
-	vector<uint64_t> hash_digests;
 	bfHash.getLevelwiseHashDigest(i, hash_digests);
 
 	bool bf_result = QueryFilter( i, bf_no, hash_digests, key);

@@ -18,6 +18,7 @@ public:
     static int share_hash_across_filter_units_; // 0 -> k, 1 -> 1, 2 -> 2
     static int num_filter_units_; 
     static int num_hash_indexes_;
+    static bool reset;
     static HashType ht_;
     string key_;
     static vector<uint64_t> hash_digests_;
@@ -26,7 +27,6 @@ public:
     BFHash(string & key){
         key_ = key;
         getLevelwiseHashDigest(0, hash_digests_);  
-        hash_digests_ = vector<uint64_t> ();
     } 
     static void prepareHashFuncs(); 
     static fsec hash_duration;
