@@ -5,7 +5,6 @@ CPPFLAGS=-std=c++11
 
 .PHONY: all
 all: test
-	./test
 
 test: test.cpp ../hash/sha-256.c ../hash/xxhash.o
 

@@ -14,7 +14,7 @@
 
 using namespace std;
 
-uint64_t get_hash(const char input[])
+uint64_t get_sha_hash(const char input[])
 {
     uint8_t hash[32];
     uint64_t result = 0;
@@ -52,26 +52,53 @@ char *mkrndstr(size_t length)
     return randomString;
 }
 
-int main(void)
+XXH64_hash_t get_xx_hash(string key, uint32_t seed=1)
 {
+    XXH64_hash_t const p = seed;
+    const void *key_void = key.c_str();
+    XXH64_hash_t const h = XXH64(key_void, key.size(), p);
 
-    int nops = 100;
+    return h;
+}
+
+int main(int argc, char* argv[])
+{
+    if(argc < 4)
+    {
+        std::cout<<"usage: ./test rand_key_size num_tries hash_type"<<endl;
+        std::cout<<"hash_type can be any one of XXHASH or SHA2"<<endl;
+        return 0;
+    }
+
+    int l = atoi(argv[1]);
+    int nops = atoi(argv[2]);
+
+    string hash_type = argv[3];
     unsigned long long total_sha_time = 0;
-    int l = 1024;
+    
     char *s = mkrndstr(l);
-    cout << s << endl;
-    cout << sizeof(s) << endl;
     for (int i = 0; i < nops; i++)
     {
         auto hash_start = chrono::high_resolution_clock::now();
 
-        uint64_t hash_i = get_hash(s);
+        if(hash_type=="SHA2")
+        {
+            uint64_t hash_i = get_sha_hash(s);
+        }
+        else if(hash_type=="XXHASH")
+        {
+            XXH64_hash_t hash_i = get_xx_hash(std::string(s));
+        }
+        else{
+            std::cout<<"Invalid hash_type. hash_type can be either XXHASH or SHA2"<<endl;
+            return 0;
+        }
 
         auto hash_end = chrono::high_resolution_clock::now();
         total_sha_time += chrono::duration_cast<chrono::microseconds>(hash_end - hash_start).count();
     }
 
-    std::cout << "Average time taken for hashing a key of " << l << " bytes = " << (total_sha_time / (double)nops) << " microseconds" << endl;
+    std::cout << "Average time taken for hashing a key of " << l << " bytes = " << (total_sha_time / (double)nops) << " microseconds over " << nops << " tries with " << hash_type << endl;
 
     return 0;
 }
