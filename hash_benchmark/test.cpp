@@ -4,10 +4,15 @@
 #include <stdlib.h>
 #include <algorithm>
 #include <iostream>
+// #include "../stdafx.h"
 #include "../hash/sha-256.h"
+#include "../hash/xxhash.h"
+
+#include <functional>
+#include <string>
+#include <chrono>
 
 using namespace std;
-
 
 uint64_t get_hash(const char input[])
 {
@@ -28,7 +33,7 @@ char *mkrndstr(size_t length)
 
     if (length)
     {
-        randomString = (char*)malloc(length + 1); // sizeof(char) == 1, cf. C99
+        randomString = (char *)malloc(length + 1); // sizeof(char) == 1, cf. C99
 
         if (randomString)
         {
@@ -49,23 +54,24 @@ char *mkrndstr(size_t length)
 
 int main(void)
 {
-    // size_t i;
-    // for (i = 0; i < (sizeof STRING_VECTORS / sizeof (struct string_vector)); i++) {
-    // 	const struct string_vector *vector = &STRING_VECTORS[0];
-    // 	if (string_test(vector->input, vector->output))
-    // 		return 1;
-    // }
 
     int nops = 100;
     unsigned long long total_sha_time = 0;
     int l = 1024;
     char *s = mkrndstr(l);
-    cout<<s<<endl;
-    cout<<sizeof(s)<<endl;
+    cout << s << endl;
+    cout << sizeof(s) << endl;
     for (int i = 0; i < nops; i++)
     {
-        uint64_t hash = get_hash(s);
+        auto hash_start = chrono::high_resolution_clock::now();
+
+        uint64_t hash_i = get_hash(s);
+
+        auto hash_end = chrono::high_resolution_clock::now();
+        total_sha_time += chrono::duration_cast<chrono::microseconds>(hash_end - hash_start).count();
     }
+
+    std::cout << "Average time taken for hashing a key of " << l << " bytes = " << (total_sha_time / (double)nops) << " microseconds" << endl;
 
     return 0;
 }

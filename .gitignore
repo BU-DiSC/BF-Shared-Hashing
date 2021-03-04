@@ -52,3 +52,5 @@ Thumbs.db
 lsm-emu
 
 .vscode/
+
+hash_benchmark/test
