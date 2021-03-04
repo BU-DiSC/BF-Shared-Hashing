@@ -7,7 +7,7 @@ using namespace std;
 //#include "hash/crc32c.h"
 
 #include "hash/sha-256.h"
-
+#include "hash/xxhash.h"
 #include <functional>
 #include <string>
 
@@ -63,8 +63,14 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             result = MurmurHash2(key.c_str(), key.size(), seed);
             break;
         case XXhash:
-            result = MurmurHash2(key.c_str(), key.size(), seed);
+        {
+            // result = MurmurHash2(key.c_str(), key.size(), seed);
+            XXH64_hash_t const p = seed;
+            const void * key_void = key.c_str();
+            XXH64_hash_t const h = XXH64(key_void, key.size(), p);
+            printf("hash '%s': %d \n", key.c_str(), h);
             break;
+        }
         case CRC:
             //sprintf(buffer, "%x",rocksdb::crc32c::Value(key.c_str(),key.size())); 
 	    //result = buffer;
