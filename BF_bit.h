@@ -7,9 +7,10 @@ enum HashType {
     MD5 = 0x0,
     SHA2 = 0x1,
     MurMurhash = 0x2,
-    XXhash = 0x3,
-    CRC = 0x4,
-    Default = 0x5
+    MurMur64 = 0x3,
+    XXhash = 0x4,
+    CRC = 0x5,
+    Default = 0x6
 };
 
 class BFHash {

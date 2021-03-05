@@ -4,8 +4,7 @@ using namespace std;
 #include "BF_bit.h"
 #include "hash/md5.h"
 #include "hash/murmurhash.h"
-//#include "hash/crc32c.h"
-
+#include "hash/Crc32.h"
 #include "hash/sha-256.h"
 #include "hash/xxhash.h"
 #include <functional>
@@ -59,9 +58,14 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             break;
         }
             
-        case MurMurhash:
+        case MurMurhash: {
             result = MurmurHash2(key.c_str(), key.size(), seed);
             break;
+	}
+	case MurMur64: {
+	    result = MurmurHash64A( key.c_str(), key.size(), seed);
+	    break;
+	}
         case XXhash:
         {
             // result = MurmurHash2(key.c_str(), key.size(), seed);
@@ -71,11 +75,11 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             printf("hash '%s': %d \n", key.c_str(), h);
             break;
         }
-        case CRC:
-            //sprintf(buffer, "%x",rocksdb::crc32c::Value(key.c_str(),key.size())); 
-	    //result = buffer;
-            result = MurmurHash2(key.c_str(), key.size(), seed);
+        case CRC:{
+            const void * key_void = key.c_str();
+            result = crc32_fast( key_void, (unsigned long)key.size(), seed );
             break;
+        }
 	default:
 	    //std::hash<std::string> dft_hash;
             result = MurmurHash2(key.c_str(), key.size(), seed);
