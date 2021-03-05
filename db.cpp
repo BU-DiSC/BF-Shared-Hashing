@@ -383,7 +383,8 @@ string db::GetFromData( int i, int bf_no, int index_pos, string key, bool * resu
 
 int db::read_data ( string filename, int pos, int key_size, vector<string> & data_block )
 {
-	int flags = O_RDWR | O_DIRECT | O_SYNC;
+	//int flags = O_RDWR | O_DIRECT | O_SYNC;
+	int flags = O_RDWR;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
 
 	int fd = open(filename.c_str(), flags, mode );
@@ -737,7 +738,8 @@ void db::PrintStat()
 }
 
 void db::read_bf(string filename, unsigned char* bf_buffer, int size){
-	int flags = O_RDWR | O_DIRECT;
+	//int flags = O_RDWR | O_DIRECT;
+	int flags = O_RDWR;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
 
 	
@@ -768,7 +770,8 @@ void db::read_bf(string filename, unsigned char* bf_buffer, int size){
 }
 
 int db::read_index_size( string filename ){
-	int flags = O_RDWR | O_DIRECT | O_SYNC;
+	//int flags = O_RDWR | O_DIRECT | O_SYNC;
+	int flags = O_RDWR;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
 
 	int fd = open(filename.c_str(), flags, mode );
@@ -797,7 +800,8 @@ int db::read_index_size( string filename ){
 
 void db::read_index( string filename, int size, char** index)
 {
-	int flags = O_RDWR | O_DIRECT | O_SYNC;
+	//int flags = O_RDWR | O_DIRECT | O_SYNC;
+	int flags = O_RDWR | O_SYNC;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
 
 	int fd = open(filename.c_str(), flags, mode );
