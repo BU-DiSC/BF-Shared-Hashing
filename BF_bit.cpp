@@ -48,7 +48,7 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
     auto hash_start = high_resolution_clock::now();
     switch(ht){
         case MD5:
-            result = stoull(md5(key),nullptr, 16);
+            memcpy(&result, md5(key).c_str(), sizeof(result));
             break;
         case SHA2:{
             uint8_t hash[32];
@@ -81,7 +81,6 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             break;
         }
 	default:
-	    //std::hash<std::string> dft_hash;
             result = MurmurHash2(key.c_str(), key.size(), seed);
             break;
     }
@@ -154,10 +153,12 @@ void pgm_BF( string key, int level, int filter_unit_idx, int BF_size, int BF_ind
 	int * ind_dec;
 	ind_dec = (int * )malloc( BF_index  * sizeof(int));
 
+    cout << "check" << endl;
 	if ( key.size() == 0)
 		return;
 
 	BFHash bfHash (key);	
+    cout << "check" << endl;
 	vector<uint64_t> hash_digests = vector<uint64_t> (BFHash::num_filter_units_, 0);
 	bfHash.getLevelwiseHashDigest(level, hash_digests);
 
