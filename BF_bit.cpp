@@ -72,7 +72,7 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             XXH64_hash_t const p = seed;
             const void * key_void = key.c_str();
             XXH64_hash_t const h = XXH64(key_void, key.size(), p);
-            printf("hash '%s': %d \n", key.c_str(), h);
+            result = h;
             break;
         }
         case CRC:{
