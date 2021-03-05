@@ -153,12 +153,10 @@ void pgm_BF( string key, int level, int filter_unit_idx, int BF_size, int BF_ind
 	int * ind_dec;
 	ind_dec = (int * )malloc( BF_index  * sizeof(int));
 
-    cout << "check" << endl;
 	if ( key.size() == 0)
 		return;
 
 	BFHash bfHash (key);	
-    cout << "check" << endl;
 	vector<uint64_t> hash_digests = vector<uint64_t> (BFHash::num_filter_units_, 0);
 	bfHash.getLevelwiseHashDigest(level, hash_digests);
 
