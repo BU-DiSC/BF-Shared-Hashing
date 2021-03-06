@@ -21,7 +21,7 @@ int options::parse( int argc, char *argv[] )
   args::ValueFlag<int> entry_size_cmd(group1, "E", "The size of a key-value pair inserted into DB [def: 64 B]", {'E', "entry_size"});
   args::ValueFlag<int> key_size_cmd(group1, "K", "The size of a key inserted into DB [def: 16 B]", {'K', "key_size"});
 
-  args::ValueFlag<int> bits_per_key_cmd(group1, "bits_per_key", "The number of bits per key assigned to Bloom filter [def: 0]", {'b', "bits_per_key"});
+  args::ValueFlag<int> bits_per_key_cmd(group1, "bits_per_key", "The number of bits per key assigned to Bloom filter [def: 10]", {'b', "bits_per_key"});
   args::Flag elastic_filters_cmd(group1, "elastic_bf", "Enable elastic filters. ", {"elastic", "enable_elastic_filters"});
   args::ValueFlag<int> num_filterunits_cmd(group1, "num_funit", "The number of filter units for elastic filter. [def: 2] ", {"num_funit", "num_filter_units"});
 
@@ -29,6 +29,9 @@ int options::parse( int argc, char *argv[] )
   args::Flag share_hash_across_filter_units_cmd(group1, "shared_hash_filter_units", "Enable sharing hash across filter units ", {"funits_share_hash", "enable_filter_units_shared_hashing"});
 
   args::Flag destroy_db_cmd(group1, "destroy_db", "Delete the exsiting DB.", {"dd", "destroy_db"});
+
+  args::ValueFlag<int> tries_cmd(group1, "number_of_tries", "#Tries to run the experiment (measured statistics would be averaged across #tries [def: 5]", { "tries"});
+  args::ValueFlag<int> delay_cmd(group1, "delay", "Read delay (nanos)  added by human[def: 0]", {'D', "delay"});
 
   try {
       parser.ParseCLI(argc, argv);
@@ -74,5 +77,12 @@ int options::parse( int argc, char *argv[] )
 
   share_hash_across_levels = share_hash_across_levels_cmd ? args::get(share_hash_across_levels_cmd): false;
   share_hash_across_filter_units = share_hash_across_filter_units_cmd ? args::get(share_hash_across_filter_units_cmd) : false;
+
+  tries = tries_cmd ? args::get(tries_cmd) : 5;
+  if(tries <= 0){
+    cout << "Warning: tries has to be a positive number. Reset to the default number 5" << endl;
+    tries = 5;
+  }
+  delay = delay_cmd ? args::get(delay_cmd) : 0;
   return 0;
 }

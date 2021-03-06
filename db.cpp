@@ -56,6 +56,9 @@ db::db( options op )
     num_filter_units = op.num_filterunits;
     hash_digests = vector<uint64_t> (num_filter_units, 0);
     BFHash::hash_digests_ = vector<uint64_t> (num_filter_units, 0);
+	//experiment
+    tries = op.tries;
+    delay = op.delay;
 
     int bf_size = (buffer_size * bpk);
 	int bf_index = (int)floor(0.693*bpk + 0.5);
@@ -66,6 +69,9 @@ db::db( options op )
     BFHash::num_hash_indexes_ = filter_unit_index;
     BFHash::num_filter_units_ = num_filter_units;
     BFHash::share_hash_across_levels_ = op.share_hash_across_levels;
+    if(!op.share_hash_across_levels){
+        BFHash::reset = false;
+    }
     BFHash::share_hash_across_filter_units_ = op.share_hash_across_filter_units;
     BFHash::prepareHashFuncs();
 }
@@ -237,21 +243,41 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 
 string db::Get( string key, bool * result )
 {
+	std::chrono::time_point<std::chrono::high_resolution_clock>  other2_start;
+	std::chrono::time_point<std::chrono::high_resolution_clock>  other2_end;
+	std::chrono::time_point<std::chrono::high_resolution_clock>  total_end;
+	std::chrono::time_point<std::chrono::high_resolution_clock>  total_start = high_resolution_clock::now();
+
 	string value;
 	BFHash bfHash(key);
-	for ( int i=0 ; i<num_levels ; i++ ){
- 		//auto other_start = high_resolution_clock::now();
+	//for ( int i=0 ; i<num_levels ; i++ ){
+	int i = 0;
+
+ 	total_end = high_resolution_clock::now();
+	total_duration += duration_cast<microseconds>(total_end - total_start);
+	
+	while(true){
+ 		total_start = high_resolution_clock::now();
+
 		value = GetLevel( i, bfHash, key, result );
 		if ( *result == true ){
 			num_lookups++;
+ 			total_end = high_resolution_clock::now();
+			total_duration += duration_cast<microseconds>(total_end - total_start);
 			return value;
 		}
- 		//auto other_end = high_resolution_clock::now();
-		//other_duration += duration_cast<microseconds>(other_end - other_start);
-	}	
-	num_lookups++;
+		i++;
+		if(i >= num_levels){
+			break;
+		}
+
+ 		total_end = high_resolution_clock::now();
+		total_duration += duration_cast<microseconds>(total_end - total_start);
+	}
 	*result = false;
 	BFHash::reset = true;
+
+	num_lookups++;
 	
 	return "";
 }
@@ -264,40 +290,62 @@ string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 	auto bs_end   = high_resolution_clock::now();
 	bs_duration += duration_cast<microseconds>(bs_end - bs_start);	
 
+ 		//auto other_start = high_resolution_clock::now();
 	lnum++;
 	(lnum_histogram->at(i))++;
 
 	// no matching sst
 	if(bf_no < 0){
 		*result = false;
+ 		//auto other_end = high_resolution_clock::now();
+		//other_duration += duration_cast<microseconds>(other_end - other_start);
 		return "";
 	}
-
+	auto hash_start = high_resolution_clock::now();
 	bfHash.getLevelwiseHashDigest(i, hash_digests);
+	auto hash_end = high_resolution_clock::now();
+	hash_duration += duration_cast<microseconds>(hash_end - hash_start);	
 
+
+    	auto bf_start = high_resolution_clock::now(); 
 	bool bf_result = QueryFilter( i, bf_no, hash_digests, key);
+    	auto bf_end = high_resolution_clock::now();
+    	bf_duration += duration_cast<microseconds>(bf_end - bf_start);
 		
 	//cout << "QueryFilter result : " << i << " " << bf_no << " " << bf_result << endl;
 
 	if( bf_result==false ){
 		total_n++;
 		*result = false;
+ 		//auto other_end = high_resolution_clock::now();
+		//other_duration += duration_cast<microseconds>(other_end - other_start);
 		return "";
 	}
-	total_p++;
 
+	bs_start = high_resolution_clock::now();
 	int index_pos = GetFromIndex( i, bf_no, key );
+	bs_end   = high_resolution_clock::now();
+	bs_duration += duration_cast<microseconds>(bs_end - bs_start);	
 
 	bool data_result = false;
+	auto data_start = high_resolution_clock::now();
 	string data = GetFromData( i, bf_no, index_pos, key, &data_result );
+	auto data_end = high_resolution_clock::now();
+	data_duration += duration_cast<microseconds>(data_end - data_start);	
 
 	// false positive
 	if (data_result == false){
 		total_fp++;
+		total_n++;
+	}else{
+
+		total_p++;
 	}
 	
 
 	*result = data_result;
+ 		//auto other_end = high_resolution_clock::now();
+		//other_duration += duration_cast<microseconds>(other_end - other_start);
 	return data;
 }
 
@@ -325,12 +373,9 @@ bool db::QueryModule( int i, int bf_no, int blo, uint64_t m_dataHash, string & k
 	get_index(m_dataHash, filter_unit_index, filter_unit_size, ind_dec );
     unsigned char* filter_unit = bf_prime[i][bf_no][blo];
     for( int k=0 ; k<filter_unit_index ; k++ ){
-    	auto bf_start = high_resolution_clock::now(); 
     	//unsigned int refBit = 1;
     	unsigned int refBit = bf_mem_access( filter_unit, ind_dec[k] );
-    	auto bf_end = high_resolution_clock::now();
-    
-    	bf_duration += duration_cast<microseconds>(bf_end - bf_start);
+
     	if(refBit == 0){
 		free(ind_dec);
     		return false;
@@ -345,10 +390,7 @@ int db::GetFromIndex( int l, int bf_no, string key )
 {
 	char** index = blk_fp_prime[l][bf_no];
 
-	auto bs_start = high_resolution_clock::now();
 	int index_pos = binary_search(key, index, blk_size_prime[l][bf_no]);
-	auto bs_end   = high_resolution_clock::now();
-	bs_duration += duration_cast<microseconds>(bs_end - bs_start);	
 	//cout << key << " " << l << " " << index_pos << endl;
 	return index_pos;
 }
@@ -360,10 +402,7 @@ string db::GetFromData( int i, int bf_no, int index_pos, string key, bool * resu
 	string sst_data_filename = data_dir + "level_" + to_string(i) + "-sst_" + to_string(bf_no) + ".txt";
 
 	
-			auto data_start = high_resolution_clock::now();
 	read_data( sst_data_filename, index_pos, key.size(), data_block );
-			auto data_end   = high_resolution_clock::now();
-			data_duration += duration_cast<microseconds>(data_end - data_start);
 	int found = -1;
 	for ( int k=0 ; k<data_block.size() ; k++){
 		string data_entry = data_block[k].substr( 0, key.size() );
@@ -452,6 +491,13 @@ int db::read_data ( string filename, int pos, int key_size, vector<string> & dat
 	free( buf );
 	close( fd );
 
+        if(delay > 0){
+	    struct timespec req = {0}; 
+            req.tv_sec = 0;
+	    req.tv_nsec = delay;
+	    nanosleep(&req, (struct timespec *)NULL);
+	}
+		
 	return 0;
 }
 
@@ -713,24 +759,31 @@ void db::flushfile( string filename, vector<string>* table){
 void db::PrintStat()
 {
 	// log file
+	string out_path_cmd = "mkdir -p " + out_path;
+	system(out_path_cmd.c_str());
 	string file_result = out_path + "result.txt";
 	ofstream result_file(file_result);
-
-	result_file << total_n << " " << total_p << endl;
-	//result_file << "Positive Counters: P \t TP \t FP" << endl;
-	//for(int i = 0; i < num_levels; i++){
-	//	result_file << "\tLevel " << i + 1 << ": " << positive_counters[i] << "\t" << bf_tp_eval_histogram->at(i) << "\t" << positive_counters[i] - bf_tp_eval_histogram->at(i) << endl;
-	//}
+	result_file << "FPR:\t" << (double) total_fp/total_n << endl;
+	double total = total_duration.count()/tries;
+	result_file << "Total query time:\t" << total  << endl;
+	total -= bf_duration.count()/tries;
+	result_file << "BF mem probe time:\t" << bf_duration.count()/tries << endl;
+	total -= hash_duration.count()/tries;
+	result_file << "BF hash calc time:\t" << hash_duration.count()/tries << endl;
+	total -= bs_duration.count()/tries;
+	result_file << "Binary search time:\t" << bs_duration.count()/tries << endl;
+	total -= data_duration.count()/tries;
+	result_file << "Data access time:\t" << data_duration.count()/tries << endl;
+	result_file << "Other time:\t" << total << endl;
+	//cout << "Other2 time:\t" << other2_duration.count()/tries << endl;
 	
-	result_file << "the total number of BF queries " << lnum << endl;
-	result_file << "the total number of filter_unit queries " << qnum << " " << (double)qnum/lnum << endl;
 	result_file << endl;
 
-
+	/*
 	for( int i=0 ; i<num_filter_units; i++ ){
 		result_file << "qnum " << i << " : " << qnum_histogram->at(i) << endl;
 		cout << "qnum " << i << " : " << qnum_histogram->at(i) << endl;
-	}
+	}*/
 
 	result_file.close();
 

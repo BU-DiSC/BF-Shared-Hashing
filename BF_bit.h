@@ -26,10 +26,9 @@ public:
     static vector<uint32_t> filter_unit_seeds_;
     BFHash(string & key){
         key_ = key;
-        getLevelwiseHashDigest(0, hash_digests_);  
+        getLevelwiseHashDigest(-1, hash_digests_);  
     } 
     static void prepareHashFuncs(); 
-    static fsec hash_duration;
     void getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests);
     uint64_t getFilterUnitwiseHashDigest(int filter_unit_no);
     static uint64_t get_hash_digest(string & key, HashType ht, uint32_t seed);

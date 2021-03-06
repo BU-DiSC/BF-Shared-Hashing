@@ -29,5 +29,9 @@ public:
   bool share_hash_across_levels;
   bool share_hash_across_filter_units;
 
+  // experiments
+  int tries;
+  int delay;
+
   int parse(int argc, char *argv[]);
 };
