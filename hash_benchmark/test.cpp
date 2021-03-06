@@ -7,6 +7,9 @@
 // #include "../stdafx.h"
 #include "../hash/sha-256.h"
 #include "../hash/xxhash.h"
+#include "../hash/md5.h"
+#include "../hash/murmurhash.h"
+#include "../hash/Crc32.h"
 
 #include <functional>
 #include <string>
@@ -52,7 +55,7 @@ char *mkrndstr(size_t length)
     return randomString;
 }
 
-XXH64_hash_t get_xx_hash(string key, uint32_t seed=1)
+XXH64_hash_t get_xx_hash(string key, uint32_t seed = 1)
 {
     XXH64_hash_t const p = seed;
     const void *key_void = key.c_str();
@@ -61,12 +64,36 @@ XXH64_hash_t get_xx_hash(string key, uint32_t seed=1)
     return h;
 }
 
-int main(int argc, char* argv[])
+uint64_t get_md5_hash(string key)
 {
-    if(argc < 4)
+    uint64_t result = 0;
+    memcpy(&result, md5(key).c_str(), sizeof(result));
+
+    return result;
+}
+
+uint64_t get_murmur_hash(string key, uint32_t seed = 1)
+{
+    return MurmurHash2(key.c_str(), key.size(), seed);
+}
+
+uint64_t get_murmur64_hash(string key, uint32_t seed = 1)
+{
+    return MurmurHash64A(key.c_str(), key.size(), seed);
+}
+
+uint64_t get_crc_hash(string key, uint32_t seed = 1)
+{
+    const void *key_void = key.c_str();
+    return crc32_fast(key_void, (unsigned long)key.size(), seed);
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc < 4)
     {
-        std::cout<<"usage: ./test rand_key_size num_tries hash_type"<<endl;
-        std::cout<<"hash_type can be any one of XXHASH or SHA2"<<endl;
+        std::cout << "usage: ./test rand_key_size num_tries hash_type" << endl;
+        std::cout << "hash_type can be any one of XXHASH, SHA2, MD5, MURMUR, MURMUR64, CRC" << endl;
         return 0;
     }
 
@@ -75,22 +102,39 @@ int main(int argc, char* argv[])
 
     string hash_type = argv[3];
     unsigned long long total_sha_time = 0;
-    
+
     char *s = mkrndstr(l);
     for (int i = 0; i < nops; i++)
     {
         auto hash_start = chrono::high_resolution_clock::now();
 
-        if(hash_type=="SHA2")
+        if (hash_type == "SHA2")
         {
             uint64_t hash_i = get_sha_hash(s);
         }
-        else if(hash_type=="XXHASH")
+        else if (hash_type == "XXHASH")
         {
             XXH64_hash_t hash_i = get_xx_hash(std::string(s));
         }
-        else{
-            std::cout<<"Invalid hash_type. hash_type can be either XXHASH or SHA2"<<endl;
+        else if (hash_type == "MD5")
+        {
+            uint64_t hash_i = get_md5_hash(s);
+        }
+        else if (hash_type == "MURMUR")
+        {
+            uint64_t hash_i = get_murmur_hash(s);
+        }
+        else if (hash_type == "MURMUR64")
+        {
+            uint64_t hash_i = get_murmur64_hash(s);
+        }
+        else if (hash_type == "CRC")
+        {
+            uint64_t hash_i = get_crc_hash(s);
+        }
+        else
+        {
+            std::cout << "Invalid hash_type. hash_type can be either XXHASH or SHA2" << endl;
             return 0;
         }
 
