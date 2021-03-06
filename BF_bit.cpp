@@ -4,8 +4,7 @@ using namespace std;
 #include "BF_bit.h"
 #include "hash/md5.h"
 #include "hash/murmurhash.h"
-//#include "hash/crc32c.h"
-
+#include "hash/Crc32.h"
 #include "hash/sha-256.h"
 #include "hash/xxhash.h"
 #include <functional>
@@ -47,7 +46,7 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
     uint64_t result = 0;
     switch(ht){
         case MD5:
-            result = stoull(md5(key),nullptr, 16);
+            memcpy(&result, md5(key).c_str(), sizeof(result));
             break;
         case SHA2:{
             uint8_t hash[32];
@@ -57,25 +56,29 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             break;
         }
             
-        case MurMurhash:
+        case MurMurhash: {
             result = MurmurHash2(key.c_str(), key.size(), seed);
             break;
+	}
+	case MurMur64: {
+	    result = MurmurHash64A( key.c_str(), key.size(), seed);
+	    break;
+	}
         case XXhash:
         {
             // result = MurmurHash2(key.c_str(), key.size(), seed);
             XXH64_hash_t const p = seed;
             const void * key_void = key.c_str();
             XXH64_hash_t const h = XXH64(key_void, key.size(), p);
-            printf("hash '%s': %d \n", key.c_str(), h);
+            result = h;
             break;
         }
-        case CRC:
-            //sprintf(buffer, "%x",rocksdb::crc32c::Value(key.c_str(),key.size())); 
-	    //result = buffer;
-            result = MurmurHash2(key.c_str(), key.size(), seed);
+        case CRC:{
+            const void * key_void = key.c_str();
+            result = crc32_fast( key_void, (unsigned long)key.size(), seed );
             break;
+        }
 	default:
-	    //std::hash<std::string> dft_hash;
             result = MurmurHash2(key.c_str(), key.size(), seed);
             break;
     }
