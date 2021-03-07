@@ -16,7 +16,6 @@ int BFHash::num_filter_units_ = 2;
 int BFHash::num_hash_indexes_ = 6;
 bool BFHash::reset = true;
 HashType BFHash::ht_ = MD5;
-fsec BFHash::hash_duration = std::chrono::microseconds::zero();
 vector<HashType> BFHash::filter_unit_hash_funcs_ = vector<HashType> ();
 vector<uint32_t> BFHash::filter_unit_seeds_ = vector<uint32_t> ();
 vector<uint64_t> BFHash::hash_digests_ = vector<uint64_t> ();
@@ -45,7 +44,6 @@ void hash_to_string(char string[65], const uint8_t hash[32])
 }
 uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
     uint64_t result = 0;
-    auto hash_start = high_resolution_clock::now();
     switch(ht){
         case MD5:
             memcpy(&result, md5(key).c_str(), sizeof(result));
@@ -85,13 +83,11 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             break;
     }
     
-    auto hash_end   = high_resolution_clock::now();
-    hash_duration += duration_cast<microseconds>(hash_end - hash_start);	
     return result;
 }
 
 void BFHash::getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests){
-        if(!share_hash_across_levels_ || hash_digests_.size() == 0 || reset){
+        if((!share_hash_across_levels_ && level != -1)|| hash_digests_.size() == 0 || reset){
 	    if(share_hash_across_filter_units_ == 0){
                 for(int i = 0; i < num_filter_units_; i++){
                     hash_digests[i] = getFilterUnitwiseHashDigest(i);
@@ -125,7 +121,7 @@ void BFHash::getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests){
             }
             hash_digests_ = hash_digests;
 	    reset = false;
-	}else{
+	}else if(level != -1){
             hash_digests = hash_digests_;
         }
 }

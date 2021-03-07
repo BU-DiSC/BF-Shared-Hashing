@@ -40,6 +40,7 @@ private:
     int filter_unit_byte;
     int filter_unit_index;
 
+
 	int index_size;
 	int data_size;
 
@@ -51,10 +52,12 @@ private:
     // stats
  public:
 	// get starting timepoint
+	fsec total_duration = std::chrono::microseconds::zero();
 	fsec data_duration = std::chrono::microseconds::zero();
 	fsec bf_duration   = std::chrono::microseconds::zero();
+	fsec hash_duration   = std::chrono::microseconds::zero();
 	fsec bs_duration = std::chrono::microseconds::zero();
-	fsec other_duration = std::chrono::microseconds::zero();
+	fsec other2_duration = std::chrono::microseconds::zero();
 
 	uint64_t total_n = 0;
 	uint64_t total_p = 0;
@@ -77,6 +80,9 @@ private:
 	//vector<int>* bf_eval_histogram = new vector<int> (num_levels, 0);
 	//vector<int>* bf_tp_eval_histogram = new vector<int> (num_levels, 0);
 
+	// experiments
+	int tries;
+	int delay;
 	db( options op );
 
 	void split_keys( vector<string> table_in, vector<vector<vector<string> > > & reallocated_keys );

@@ -89,35 +89,25 @@ int main(int argc, char * argv[])
 
 	bool result;
 
-	auto query_start = high_resolution_clock::now();
 	
 	//for ( long i=0 ; i<100 ; i++ ) {
-	for ( long i=0 ; i<table_out.size() ; i++ ) {
-		input_str = table_out[i];
-		//cout << input_str << endl;
-		result = false;
-		database.Get( input_str, &result );
+	for(int k = 0; k < database.tries; k++){
+		cout << "Run " << k << " : " << endl;
+		for ( long i=0 ; i<table_out.size() ; i++ ) {
+			input_str = table_out[i];
+			//cout << input_str << endl;
+			result = false;
+			database.Get( input_str, &result );
 
-		input_str.clear();
-		if ( i%50000 == 0 && i != 0 ) cout << "query process : " << i << endl;
+			input_str.clear();
+			if ( i%(table_out.size()/10) == 0 ) cout << i/(table_out.size()/10)*10 << "%" << std::flush;
+			if ( i%(table_out.size()/100) == 0 && i != 0 ) cout << "=" << std::flush;
+		}
+		cout << "100%" << endl;
 	}
 	
-	auto query_end = high_resolution_clock::now();
 	// ------------------------------------------------------------------------------
-        fsec query_duration =duration_cast<microseconds>(query_end - query_start);
-	uint32_t total = query_duration.count();
-	cout << "Total query time:\t" << total  << endl;
-	total -= database.bf_duration.count();
-	cout << "BF mem probe time:\t" << database.bf_duration.count() << endl;
-	total -= BFHash::hash_duration.count();
-	cout << "BF hash calc time:\t" << BFHash::hash_duration.count() << endl;
-	total -= database.bs_duration.count();
-	cout << "Binary search time:\t" << database.bs_duration.count() << endl;
-	total -= database.data_duration.count();
-	cout << "Data access time:\t" << database.data_duration.count() << endl;
-	cout << "Other time:\t" << total << endl;
-	//cout << "Other time:\t" << database.other_duration.count() << endl;
-	// log file
+		// log file
 	database.PrintStat();
 	return temp;
 }
