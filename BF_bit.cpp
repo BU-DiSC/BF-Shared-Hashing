@@ -52,7 +52,7 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             uint8_t hash[32];
             const uint8_t * a = (const uint8_t*)key.c_str();
             calc_sha_256(hash, a, key.length());
-	    result = ((hash[0] << 24) + (hash[1] << 16) + (hash[2] << 8) + hash[3]) << 32 + (hash[4] << 24) + (hash[5] << 16) + (hash[6] << 8) + hash[7];
+	    result = ((hash[24] << 24) + (hash[25] << 16) + (hash[26] << 8) + hash[27]) << 32 + (hash[28] << 24) + (hash[29] << 16) + (hash[30] << 8) + hash[31];
             break;
         }
             
