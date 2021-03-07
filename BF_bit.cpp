@@ -15,7 +15,7 @@ int BFHash::share_hash_across_filter_units_ = 1;
 int BFHash::num_filter_units_ = 2;
 int BFHash::num_hash_indexes_ = 6;
 bool BFHash::reset = true;
-HashType BFHash::ht_ = MD5;
+HashType BFHash::ht_ = MurMurhash;
 vector<HashType> BFHash::filter_unit_hash_funcs_ = vector<HashType> ();
 vector<uint32_t> BFHash::filter_unit_seeds_ = vector<uint32_t> ();
 vector<uint64_t> BFHash::hash_digests_ = vector<uint64_t> ();
@@ -52,7 +52,9 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             uint8_t hash[32];
             const uint8_t * a = (const uint8_t*)key.c_str();
             calc_sha_256(hash, a, key.length());
-	    result = ((hash[24] << 24) + (hash[25] << 16) + (hash[26] << 8) + hash[27]) << 32 + (hash[28] << 24) + (hash[29] << 16) + (hash[30] << 8) + hash[31];
+	    for(int i = 0; i < 32; i++){
+               result = (result << 1) + (hash[i]&0x1);
+	    }
             break;
         }
             

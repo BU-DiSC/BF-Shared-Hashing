@@ -1,7 +1,7 @@
 
 CCOMPILE=g++
 CPPFLAGS=-std=c++11 -I 
-LDFLAGS= -Wno-deprecated -O2 -Ofast
+LDFLAGS= -Wno-deprecated -O3 -Ofast
 #pf_LDFLAGS= -Wno-deprecated -O3 -fprefetch-loop-arrays
 pf_LDFLAGS= -Wno-deprecated -Ofast
 
