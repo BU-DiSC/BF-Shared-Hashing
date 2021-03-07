@@ -282,7 +282,7 @@ string db::Get( string key, bool * result )
 	return "";
 }
 
-string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
+inline string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 {
 	// Binary search for fense pointer
 	auto bs_start = high_resolution_clock::now();
@@ -349,7 +349,7 @@ string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 	return data;
 }
 
-bool db::QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, string key )
+inline bool db::QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, string key )
 {
 	bool result = true;
 	
@@ -366,7 +366,7 @@ bool db::QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, string 
 	return result;
 }
 
-bool db::QueryModule( int i, int bf_no, int blo, uint64_t m_dataHash, string & key )
+inline bool db::QueryModule( int i, int bf_no, int blo, uint64_t m_dataHash, string & key )
 {
     int * ind_dec;
     ind_dec = (int * )malloc( filter_unit_index * sizeof(int));
@@ -386,7 +386,7 @@ bool db::QueryModule( int i, int bf_no, int blo, uint64_t m_dataHash, string & k
     return true;
 }
 
-int db::GetFromIndex( int l, int bf_no, string key )
+inline int db::GetFromIndex( int l, int bf_no, string key )
 {
 	char** index = blk_fp_prime[l][bf_no];
 
@@ -395,7 +395,7 @@ int db::GetFromIndex( int l, int bf_no, string key )
 	return index_pos;
 }
 
-string db::GetFromData( int i, int bf_no, int index_pos, string key, bool * result )
+inline string db::GetFromData( int i, int bf_no, int index_pos, string key, bool * result )
 {
 	vector <string> data_block;
 	vector <string> filter;
@@ -420,7 +420,7 @@ string db::GetFromData( int i, int bf_no, int index_pos, string key, bool * resu
 	}
 }
 
-int db::read_data ( string filename, int pos, int key_size, vector<string> & data_block )
+inline int db::read_data ( string filename, int pos, int key_size, vector<string> & data_block )
 {
 	//int flags = O_RDWR | O_DIRECT | O_SYNC;
 	int flags = O_RDWR;
@@ -501,7 +501,7 @@ int db::read_data ( string filename, int pos, int key_size, vector<string> & dat
 	return 0;
 }
 
-int db::binary_search(string key, char** indexes, int size)
+inline int db::binary_search(string key, char** indexes, int size)
 {
 	int len = size;
 	if(len == 0){return -1;}
@@ -790,7 +790,7 @@ void db::PrintStat()
 	return;
 }
 
-void db::read_bf(string filename, unsigned char* bf_buffer, int size){
+inline void db::read_bf(string filename, unsigned char* bf_buffer, int size){
 	//int flags = O_RDWR | O_DIRECT;
 	int flags = O_RDWR;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
@@ -822,7 +822,7 @@ void db::read_bf(string filename, unsigned char* bf_buffer, int size){
 		close( fd_ );	
 }
 
-int db::read_index_size( string filename ){
+inline int db::read_index_size( string filename ){
 	//int flags = O_RDWR | O_DIRECT | O_SYNC;
 	int flags = O_RDWR;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
@@ -851,7 +851,7 @@ int db::read_index_size( string filename ){
 	return size;
 }
 
-void db::read_index( string filename, int size, char** index)
+inline void db::read_index( string filename, int size, char** index)
 {
 	//int flags = O_RDWR | O_DIRECT | O_SYNC;
 	int flags = O_RDWR | O_SYNC;
