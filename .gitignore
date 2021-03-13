@@ -54,3 +54,6 @@ lsm-emu
 .vscode/
 
 hash_benchmark/test
+*perf.data*
+*/out/*
+micro/micro

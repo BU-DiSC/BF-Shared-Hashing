@@ -24,6 +24,9 @@ public:
   int bits_per_key;
   bool elastic_filters;
   int num_filterunits;
+  bool fastlocal_bf;
+  bool xxhash;
+
 
   // share hash
   bool share_hash_across_levels;

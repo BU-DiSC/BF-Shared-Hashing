@@ -104,9 +104,9 @@ int main(int argc, char *argv[])
     unsigned long long total_sha_time = 0;
 
     char *s = mkrndstr(l);
+        auto hash_start = chrono::high_resolution_clock::now();
     for (int i = 0; i < nops; i++)
     {
-        auto hash_start = chrono::high_resolution_clock::now();
 
         if (hash_type == "SHA2")
         {
@@ -138,10 +138,10 @@ int main(int argc, char *argv[])
             return 0;
         }
 
-        auto hash_end = chrono::high_resolution_clock::now();
-        total_sha_time += chrono::duration_cast<chrono::microseconds>(hash_end - hash_start).count();
     }
 
+        auto hash_end = chrono::high_resolution_clock::now();
+        total_sha_time += chrono::duration_cast<chrono::microseconds>(hash_end - hash_start).count();
     std::cout << "Average time taken for hashing a key of " << l << " bytes = " << (total_sha_time / (double)nops) << " microseconds over " << nops << " tries with " << hash_type << endl;
 
     return 0;

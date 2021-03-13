@@ -15,13 +15,14 @@ int BFHash::share_hash_across_filter_units_ = 1;
 int BFHash::num_filter_units_ = 2;
 int BFHash::num_hash_indexes_ = 6;
 bool BFHash::reset = true;
-HashType BFHash::ht_ = MurMurhash;
+HashType BFHash::ht_ = MurMur64;
 vector<HashType> BFHash::filter_unit_hash_funcs_ = vector<HashType> ();
 vector<uint32_t> BFHash::filter_unit_seeds_ = vector<uint32_t> ();
 vector<uint64_t> BFHash::hash_digests_ = vector<uint64_t> ();
 
-void BFHash:: prepareHashFuncs(){
-   filter_unit_hash_funcs_ = vector<HashType> (num_filter_units_, MurMurhash);
+void BFHash:: prepareHashFuncs(HashType ht){
+   ht_ = ht;
+   filter_unit_hash_funcs_ = vector<HashType> (num_filter_units_,  ht);
    hash_digests_ = vector<uint64_t> (num_filter_units_, 0);
    filter_unit_seeds_ = vector<uint32_t> (1, 0xbc9f1d34);
    uint32_t last_seed = 0xbc9f1d34;
@@ -135,42 +136,15 @@ void get_index( uint64_t hash_digest, int BF_index, int BF_size, int *index )
   uint64_t m_int_hash = hash_digest;
   index[0] = m_int_hash % BF_size;
   // get BF indices
+  uint64_t delta = (m_int_hash << 17 | m_int_hash >> 15);
   for( uint32_t n=1 ; n<BF_index ; n++ ){
-    m_int_hash = m_int_hash + (m_int_hash << 17 | m_int_hash >> 15); 
+    m_int_hash = m_int_hash + delta; 
     index[n] =  m_int_hash % BF_size;
   }
 
   return;
 }
 
-
-void pgm_BF( string key, int level, int filter_unit_idx, int BF_size, int BF_index, unsigned char* BF )
-{
-	constexpr unsigned char mask[WORD] = {0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80};
-
-	int * ind_dec;
-	ind_dec = (int * )malloc( BF_index  * sizeof(int));
-
-	if ( key.size() == 0)
-		return;
-
-	BFHash bfHash (key);	
-	vector<uint64_t> hash_digests = vector<uint64_t> (BFHash::num_filter_units_, 0);
-	bfHash.getLevelwiseHashDigest(level, hash_digests);
-
-	get_index(hash_digests[filter_unit_idx], BF_index, BF_size, ind_dec );
-
-	for(int j=0; j<BF_index; j++)
-	{
-		unsigned int ind_byte = ind_dec[j]/WORD;
-		unsigned char ref = BF[ind_byte];
-		BF[ind_byte] = ref | mask[ind_dec[j]%WORD];
-		//printf("P: %d %02hhx %02hhx\n", ref, mask[ind_dec[j]%WORD], BF->at(ind_byte) );
-	}
-
-	free(ind_dec);
-	return;
-}
 
 
 unsigned int bf_mem_access(unsigned char* BF, int index )

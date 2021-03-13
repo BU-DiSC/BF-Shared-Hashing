@@ -1,8 +1,10 @@
 using namespace std;
 
 #include "db.h"
+#include "FastLocalBF.h"
+#include "LegacyBF.h"
 #include <math.h>
-
+#include <iostream>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -44,6 +46,7 @@ db::db( options op )
     E = op.entry_size;
 	K = op.key_size;
     size_ratio = op.size_ratio;
+    fastlocal_bf = op.fastlocal_bf;
 
     buffer_size = P * B;
 
@@ -73,7 +76,11 @@ db::db( options op )
         BFHash::reset = false;
     }
     BFHash::share_hash_across_filter_units_ = op.share_hash_across_filter_units;
-    BFHash::prepareHashFuncs();
+    if(op.xxhash){
+       BFHash::prepareHashFuncs(XXhash);
+    }else{
+       BFHash::prepareHashFuncs(MurMur64);
+    }
 }
 
 int db::ReadSettings()
@@ -120,15 +127,20 @@ int db::ReadSettings()
 			else {
 				return -1;
 			}
-		} else if ( num>=6 && num<6+num_levels ){
-			num_sstPerLevel[num-6] = value;
+		} else if ( num==6 ){
+			if( value == 0){
+				return -1;
+			}
+			last_sst_keys = value;
+		} else if ( num>=7 && num<7+num_levels ){
+			num_sstPerLevel[num-7] = value;
 			num_sst += value;
 		}
 		num++;
 	}
 	infile.close();
 
-	if ( num < 6+num_levels )
+	if ( num < 7+num_levels )
 		return -1;
 
 	if (bf_rebuild==true){
@@ -166,6 +178,8 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 		system(index_command.c_str());
 	}
 	
+	fp_vec = vector<uint64_t> (num_levels, 0);
+	n_vec = vector<uint64_t> (num_levels, 0);
 	ofstream file_settings (settings_file, ios::out);
 	file_settings << P << endl;
 	file_settings << B << endl;
@@ -174,6 +188,7 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 	file_settings << num_filter_units << endl;
 	hash_digests = vector<uint64_t> (num_filter_units, 0);
 	file_settings << num_levels << endl;
+	file_settings << last_sst_keys << endl;
 
 	ofstream file_fence(fence_file, ios::out);
 	for ( int i=0 ; i<num_levels ; i++ ){
@@ -183,7 +198,22 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 		}
 	}
 	file_fence.close();
-	bf_prime = (unsigned char****) malloc  ( num_levels * sizeof(unsigned char***));
+	if(fastlocal_bf){
+		FastLocalBF tmpbf = FastLocalBF(bpk/num_filter_units);
+		filter_size = tmpbf.CalculateSpace(B*P);
+		last_filter_size = tmpbf.CalculateSpace(last_sst_keys);
+		num_probes = tmpbf.num_probes_;
+	}else{
+		LegacyBF tmpbf = LegacyBF(bpk/num_filter_units);
+		uint32_t dont_care;
+		filter_size = tmpbf.CalculateSpace(B*P, &dont_care, &num_lines);
+		last_filter_size = tmpbf.CalculateSpace(last_sst_keys, &dont_care, &last_num_lines);
+		num_probes = tmpbf.num_probes_;
+
+	}
+	
+	
+	bf_prime = (char****) malloc  ( num_levels * sizeof(char***));
 	blk_fp_prime = (char****) malloc  ( num_levels * sizeof(char***));
 	blk_size_prime = (int**) malloc (num_levels*sizeof(int*));
 	cout << "total lv " << num_levels << endl;
@@ -191,25 +221,52 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 		cout << "lv " << l << endl;
 		vector<vector<string> > keys_one_level = reallocated_keys[l];
 		int num_sst = keys_one_level.size();
-		bf_prime[l] = (unsigned char***) malloc (num_sst*sizeof(unsigned char**));
+		bf_prime[l] = (char***) malloc (num_sst*sizeof(char**));
 		blk_fp_prime[l] = (char***) malloc (num_sst*sizeof(char**));
 		blk_size_prime[l] = (int*) malloc (num_sst*sizeof(int));
 		file_settings << num_sst << endl;
 		for(int sst_index = 0; sst_index < num_sst; sst_index++){
 			vector<string> keys_one_sst = keys_one_level[sst_index];
-			unsigned char** sst_bf = (unsigned char**) malloc (num_filter_units*sizeof(unsigned char*));
+			char** sst_bf = (char**) malloc (num_filter_units*sizeof(char*));
 			string sst_bf_prefix = bf_dir + "level_" + to_string(l) + "-sst_" + to_string(sst_index);
+
+
 
 			for(int blo = 0; blo < num_filter_units; blo++){
 				string sst_bf_filename = sst_bf_prefix + "_" + to_string(blo) +".txt";
 				//cout << sst_bf_filename << endl;
 				int end = keys_one_sst.size();
-				unsigned char* blo_bf = (unsigned char*) malloc (filter_unit_byte*sizeof(unsigned char));
-				for( int i=0 ; i <end ; i++){
-					pgm_BF(keys_one_sst[i], l, blo, filter_unit_size, filter_unit_index, blo_bf);
+				if(fastlocal_bf){
+					FastLocalBF bf = FastLocalBF(bpk/num_filter_units);
+					for( int i=0 ; i <end ; i++){
+					
+						BFHash bfHash (keys_one_sst[i]);	
+						vector<uint64_t> hash_digests = vector<uint64_t> (num_filter_units, 0);
+						bfHash.getLevelwiseHashDigest(l, hash_digests);
+						bf.AddKey(keys_one_sst[i], hash_digests[blo]);
+					}
+					bf.Finish();
+					flushBFfile(sst_bf_filename, bf.data_, bf.space_);
+					char* blo_bf = ( char*) malloc (bf.space_*sizeof(char));
+					memcpy(blo_bf, bf.data_, bf.space_);
+					sst_bf[blo] = blo_bf;
+				}else{
+					LegacyBF bf = LegacyBF(bpk/num_filter_units);
+					for( int i=0 ; i <end ; i++){
+					
+						BFHash bfHash (keys_one_sst[i]);	
+						vector<uint64_t> hash_digests = vector<uint64_t> (num_filter_units, 0);
+						bfHash.getLevelwiseHashDigest(l, hash_digests);
+						bf.AddKey(keys_one_sst[i], hash_digests[blo]);
+					}
+					bf.Finish();
+					flushBFfile(sst_bf_filename, bf.data_, bf.space_);
+					char* blo_bf = ( char*) malloc (bf.space_*sizeof(char));
+					memcpy(blo_bf, bf.data_, bf.space_);
+					sst_bf[blo] = blo_bf;
 				}
-				flushBFfile(sst_bf_filename, blo_bf, filter_unit_byte);
-				sst_bf[blo] = blo_bf;
+				//FastLocalBF bf (bpk/num_filter_units*1000);
+				
 			}
 			bf_prime[l][sst_index] = sst_bf;
 
@@ -243,8 +300,6 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 
 string db::Get( string key, bool * result )
 {
-	std::chrono::time_point<std::chrono::high_resolution_clock>  other2_start;
-	std::chrono::time_point<std::chrono::high_resolution_clock>  other2_end;
 	std::chrono::time_point<std::chrono::high_resolution_clock>  total_end;
 	std::chrono::time_point<std::chrono::high_resolution_clock>  total_start = high_resolution_clock::now();
 
@@ -253,11 +308,7 @@ string db::Get( string key, bool * result )
 	//for ( int i=0 ; i<num_levels ; i++ ){
 	int i = 0;
 
- 	total_end = high_resolution_clock::now();
-	total_duration += duration_cast<microseconds>(total_end - total_start);
-	
 	while(true){
- 		total_start = high_resolution_clock::now();
 
 		value = GetLevel( i, bfHash, key, result );
 		if ( *result == true ){
@@ -271,13 +322,13 @@ string db::Get( string key, bool * result )
 			break;
 		}
 
- 		total_end = high_resolution_clock::now();
-		total_duration += duration_cast<microseconds>(total_end - total_start);
 	}
 	*result = false;
 	BFHash::reset = true;
 
 	num_lookups++;
+ 	total_end = high_resolution_clock::now();
+	total_duration += duration_cast<microseconds>(total_end - total_start);
 	
 	return "";
 }
@@ -285,10 +336,7 @@ string db::Get( string key, bool * result )
 inline string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 {
 	// Binary search for fense pointer
-	auto bs_start = high_resolution_clock::now();
 	int bf_no = binary_search(key, fence_pointers[i]);
-	auto bs_end   = high_resolution_clock::now();
-	bs_duration += duration_cast<microseconds>(bs_end - bs_start);	
 
  		//auto other_start = high_resolution_clock::now();
 	lnum++;
@@ -307,25 +355,20 @@ inline string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 	hash_duration += duration_cast<microseconds>(hash_end - hash_start);	
 
 
-    	auto bf_start = high_resolution_clock::now(); 
 	bool bf_result = QueryFilter( i, bf_no, hash_digests, key);
-    	auto bf_end = high_resolution_clock::now();
-    	bf_duration += duration_cast<microseconds>(bf_end - bf_start);
 		
 	//cout << "QueryFilter result : " << i << " " << bf_no << " " << bf_result << endl;
 
 	if( bf_result==false ){
 		total_n++;
+		//n_vec[i]++;
 		*result = false;
  		//auto other_end = high_resolution_clock::now();
 		//other_duration += duration_cast<microseconds>(other_end - other_start);
 		return "";
 	}
 
-	bs_start = high_resolution_clock::now();
 	int index_pos = GetFromIndex( i, bf_no, key );
-	bs_end   = high_resolution_clock::now();
-	bs_duration += duration_cast<microseconds>(bs_end - bs_start);	
 
 	bool data_result = false;
 	auto data_start = high_resolution_clock::now();
@@ -336,7 +379,9 @@ inline string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 	// false positive
 	if (data_result == false){
 		total_fp++;
+		//fp_vec[i]++;
 		total_n++;
+		//n_vec[i]++;
 	}else{
 
 		total_p++;
@@ -352,39 +397,30 @@ inline string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 inline bool db::QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, string key )
 {
 	bool result = true;
+	int tmp_filter_size = filter_size;
+	int tmp_num_lines = num_lines;
+/*	
+	if(i == num_levels - 1 && bf_no == num_sstPerLevel[i]-1){
+		tmp_filter_size = last_filter_size;
+	}
+*/	
+	if(i == num_levels - 1 && bf_no == num_sstPerLevel[i]-1){
+		tmp_num_lines = last_num_lines;
+	}
 	
 	for(int blo = 0; blo < num_filter_units; blo++){
 		qnum++;
 		(qnum_histogram->at(blo))++;
 		
-		result = QueryModule( i, bf_no, blo, hash_digests[blo], key);
-		if ( result == false ){
-			return false;
-		}
+                char* data = bf_prime[i][bf_no][blo];
+		if(!fastlocal_bf && !LegacyBF::MayMatch(hash_digests[blo], tmp_num_lines, num_probes, data)) return false;
+		if(fastlocal_bf && !FastLocalBF::MayMatch(hash_digests[blo], tmp_filter_size, num_probes, data)) return false;
+
 	}
 
 	return result;
 }
 
-inline bool db::QueryModule( int i, int bf_no, int blo, uint64_t m_dataHash, string & key )
-{
-    int * ind_dec;
-    ind_dec = (int * )malloc( filter_unit_index * sizeof(int));
-	get_index(m_dataHash, filter_unit_index, filter_unit_size, ind_dec );
-    unsigned char* filter_unit = bf_prime[i][bf_no][blo];
-    for( int k=0 ; k<filter_unit_index ; k++ ){
-    	//unsigned int refBit = 1;
-    	unsigned int refBit = bf_mem_access( filter_unit, ind_dec[k] );
-
-    	if(refBit == 0){
-		free(ind_dec);
-    		return false;
-    	}
-    }	
-
-    free(ind_dec);
-    return true;
-}
 
 inline int db::GetFromIndex( int l, int bf_no, string key )
 {
@@ -620,16 +656,32 @@ void db::split_keys( vector<string> table_in, vector<vector<vector<string> > > &
 		num_sstPerLevel[(level-1)-i] = sst_keys_one_level.size();
 		reallocated_keys.push_back(sst_keys_one_level);
 		fence_pointers.push_back(fence_pointer_one_level);
+		if(i == level - 1){
+			last_sst_keys = sst_keys_one_level.back().size();
+		}
 	}
 	SetTreeParam();
 }
 
 void db::loadBFAndIndex(){
-	bf_prime = (unsigned char****) malloc  ( num_levels * sizeof(unsigned char***));
+	fp_vec = vector<uint64_t> (num_levels, 0);
+	n_vec = vector<uint64_t> (num_levels, 0);
+	bf_prime = (char****) malloc  ( num_levels * sizeof(char***));
 	blk_fp_prime = (char****) malloc  ( num_levels * sizeof(char***));
 	blk_size_prime = (int**) malloc (num_levels*sizeof(int*));
+	if(fastlocal_bf){
+		FastLocalBF bf = FastLocalBF(bpk/num_filter_units);
+		filter_size = bf.CalculateSpace(B*P);
+        	num_probes = bf.num_probes_;
+	}else{
+		LegacyBF bf = LegacyBF(bpk/num_filter_units);
+		uint32_t dont_care;
+		filter_size = bf.CalculateSpace(B*P, &dont_care, &num_lines);
+        	num_probes = bf.num_probes_;
+	}
+	int tmp_filter_size = filter_size;
 	for(int i = 0; i < num_levels; i++){
-		bf_prime[i] = (unsigned char***) malloc (num_sstPerLevel[i]*sizeof(unsigned char**));
+		bf_prime[i] = (char***) malloc (num_sstPerLevel[i]*sizeof(char**));
 		blk_fp_prime[i] = (char***) malloc (num_sstPerLevel[i]*sizeof(char**));
 		blk_size_prime[i] = (int*) malloc (num_sstPerLevel[i]*sizeof(int));
 
@@ -644,12 +696,27 @@ void db::loadBFAndIndex(){
 			blk_fp_prime[i][j] = index;
 			blk_size_prime[i][j] = index_size;
 
-			unsigned char** sst_bf = (unsigned char**) malloc (num_filter_units*sizeof(unsigned char*));
+			if(i == num_levels - 1 && j == num_sstPerLevel[i] - 1){
+				if(fastlocal_bf){
+					FastLocalBF bf = FastLocalBF(bpk/num_filter_units);
+					last_filter_size = bf.CalculateSpace(last_sst_keys);
+					last_num_lines = bf.num_lines_;
+				}else{
+					LegacyBF bf = LegacyBF(bpk/num_filter_units);
+					uint32_t dont_care;
+					last_filter_size = bf.CalculateSpace(last_sst_keys, &dont_care, &last_num_lines);
+					last_num_lines = bf.num_lines_;
+
+				}
+				tmp_filter_size = last_filter_size;
+			} 
+			
+			char** sst_bf = (char**) malloc (num_filter_units*sizeof(char*));
 
 			for(int k = 0; k < num_filter_units; k++){
 				string sst_bf_filename = bf_dir + "level_" + to_string(i) + "-sst_" + to_string(j) + "_" + to_string(k) + ".txt";
-				unsigned char* blo_bf = (unsigned char*) malloc (filter_unit_byte*sizeof(unsigned char));
-				read_bf(sst_bf_filename, blo_bf, filter_unit_byte);
+				char* blo_bf = (char*) malloc (tmp_filter_size*sizeof(char));
+				read_bf(sst_bf_filename, blo_bf, tmp_filter_size);
 				sst_bf[k] = blo_bf;
 			}
 			bf_prime[i][j] = sst_bf;
@@ -695,15 +762,15 @@ void db::split_keys_sst(int sst_capacity, vector<string> keys_one_level, vector<
 	fence_pointer.push_back(keys_one_level.back());	
 }
 
-void db::flushBFfile(string filename, unsigned char* sst_bf_p, uint32_t size){
+void db::flushBFfile(string filename, const char* sst_bf_p, uint32_t size){
 	ofstream outfile(filename, ios::out);
 	char buffer[sizeof(unsigned int)];
 	memset(buffer, 0, sizeof(unsigned int));
 	
 	for(int i = 0; i < size; i++){
-		memcpy(buffer, &(sst_bf_p[i]), sizeof(unsigned char));
-		outfile.write(buffer, sizeof(unsigned char));
-		memset(buffer, 0, sizeof(unsigned char));
+		memcpy(buffer, &(sst_bf_p[i]), sizeof(char));
+		outfile.write(buffer, sizeof(char));
+		memset(buffer, 0, sizeof(char));
 	}	
 	outfile.close();
 
@@ -763,21 +830,20 @@ void db::PrintStat()
 	system(out_path_cmd.c_str());
 	string file_result = out_path + "result.txt";
 	ofstream result_file(file_result);
+	result_file << "Total false positives:\t" << total_fp << endl;
+	result_file << "Total negatives:\t" << total_n << endl;
 	result_file << "FPR:\t" << (double) total_fp/total_n << endl;
 	double total = total_duration.count()/tries;
 	result_file << "Total query time:\t" << total  << endl;
-	total -= bf_duration.count()/tries;
-	result_file << "BF mem probe time:\t" << bf_duration.count()/tries << endl;
-	total -= hash_duration.count()/tries;
-	result_file << "BF hash calc time:\t" << hash_duration.count()/tries << endl;
-	total -= bs_duration.count()/tries;
-	result_file << "Binary search time:\t" << bs_duration.count()/tries << endl;
 	total -= data_duration.count()/tries;
 	result_file << "Data access time:\t" << data_duration.count()/tries << endl;
+	total -= hash_duration.count()/tries;
+	result_file << "Hash time:\t" << hash_duration.count()/tries << endl;
 	result_file << "Other time:\t" << total << endl;
 	//cout << "Other2 time:\t" << other2_duration.count()/tries << endl;
 	
 	result_file << endl;
+
 
 	/*
 	for( int i=0 ; i<num_filter_units; i++ ){
@@ -790,7 +856,7 @@ void db::PrintStat()
 	return;
 }
 
-inline void db::read_bf(string filename, unsigned char* bf_buffer, int size){
+inline void db::read_bf(string filename, char* bf_buffer, int size){
 	//int flags = O_RDWR | O_DIRECT;
 	int flags = O_RDWR;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
@@ -802,7 +868,7 @@ inline void db::read_bf(string filename, unsigned char* bf_buffer, int size){
     	printf("Error %s\n", strerror(errno));
 	}
 	
-	unsigned char* buffer_;	
+	char* buffer_;	
 	posix_memalign((void**)&buffer_,DB_PAGE_SIZE,DB_PAGE_SIZE);
 	memset(buffer_, 0, DB_PAGE_SIZE);
 
@@ -811,7 +877,7 @@ inline void db::read_bf(string filename, unsigned char* bf_buffer, int size){
 			memset(buffer_, 0, DB_PAGE_SIZE);
 			read( fd_, buffer_, DB_PAGE_SIZE );
 		}
-		memcpy(bf_buffer+i, buffer_+(i%DB_PAGE_SIZE), sizeof(unsigned char));
+		memcpy(bf_buffer+i, buffer_+(i%DB_PAGE_SIZE), sizeof(char));
 	}
 	//cout << "string " << blo_bf.size() << endl;
 	//for(int i = 0; i < blo_bf.size(); i++){

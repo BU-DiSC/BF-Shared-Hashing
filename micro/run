@@ -2,22 +2,22 @@
 
 dir="/scratchNVM5/jmun/workloads"
 wl=(
+K8_E1024_2M_exp_PQ_1.0
+K16_E1024_2M_exp_PQ_1.0
+K32_E1024_2M_exp_PQ_1.0
+K64_E1024_2M_exp_PQ_1.0
 K128_E1024_2M_exp_PQ_1.0
+K256_E1024_2M_exp_PQ_1.0
+K512_E1024_2M_exp_PQ_1.0
 )
-#K8_E1024_2M_exp_PQ_1.0
-#K16_E1024_2M_exp_PQ_1.0
-#K32_E1024_2M_exp_PQ_1.0
-#K64_E1024_2M_exp_PQ_1.0
-#K256_E1024_2M_exp_PQ_1.0
-#K512_E1024_2M_exp_PQ_1.0
 
+tries=3
 for w in "${wl[@]}"
 do
   echo $w
   for hash in $(seq 0 1 6)
   do
     log="${w}/"
-    ./micro ${log} ${hash} ${dir}/${w}/in.txt ${dir}/${w}/out.txt
-    mv out/${log}/result.txt out/${log}/${hash}-result.txt
+    python exp.py ${tries} ./micro ${log} ${hash} ${dir}/${w}/in.txt ${dir}/${w}/out.txt > out/${log}/${hash}-result.txt
   done
 done

@@ -31,21 +31,29 @@ private:
     int num_levels = 0;
 	int num_sst = 0;
 	vector <int> num_sstPerLevel;
+	int last_sst_keys;
 
 	// BF related
     int bpk;
     int mod_bf;
+    bool fastlocal_bf;
     int num_filter_units;
     int filter_unit_size;
     int filter_unit_byte;
     int filter_unit_index;
+
+    int filter_size;
+    int last_filter_size;
+    uint32_t num_lines;
+    uint32_t last_num_lines;
+    int num_probes;
 
 
 	int index_size;
 	int data_size;
 
 	vector<vector<string> > fence_pointers;
-	unsigned char**** bf_prime;
+	char**** bf_prime;
 	char**** blk_fp_prime;
 	int** blk_size_prime;
 	vector<uint64_t> hash_digests;
@@ -54,14 +62,13 @@ private:
 	// get starting timepoint
 	fsec total_duration = std::chrono::microseconds::zero();
 	fsec data_duration = std::chrono::microseconds::zero();
-	fsec bf_duration   = std::chrono::microseconds::zero();
-	fsec hash_duration   = std::chrono::microseconds::zero();
-	fsec bs_duration = std::chrono::microseconds::zero();
-	fsec other2_duration = std::chrono::microseconds::zero();
+	fsec hash_duration = std::chrono::microseconds::zero();
 
 	uint64_t total_n = 0;
 	uint64_t total_p = 0;
 	uint64_t total_fp = 0;
+	vector<uint64_t> fp_vec;
+	vector<uint64_t> n_vec;
 
 	unsigned int num_lookups = 0;
 	unsigned int lnum_single = 0;
@@ -94,11 +101,10 @@ private:
 	string Get( string key, bool * result );
 	string GetLevel( int i, BFHash & bfHash, string key, bool * result );
     bool QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, string key);
-    bool QueryModule( int i, int blo, int bf_no, uint64_t m_dataHash, string & key);
 
 
-	void read_bf(string filename, unsigned char* bf, int size);
-	void flushBFfile(string filename, unsigned char* filterunit, uint32_t size);	
+	void read_bf(string filename, char* bf, int size);
+	void flushBFfile(string filename, const char* filterunit, uint32_t size);	
 	void flushfile( string file, vector<string>* table);
 	void flushIndexes( string file, char** indexes, int size, int key_size);
 	int GetFromIndex( int i, int bf_no, string key);

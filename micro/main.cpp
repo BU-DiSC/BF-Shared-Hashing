@@ -5,8 +5,30 @@ using namespace std;
 #include <zstd.h>
 #include <cstring>
 
+int num_n;
+int num_fp;
+int num_tp;
+
+int hash_mode;
+int hash_start;
+int hash_end;
+
+int bf_index;
+int bf_size;
+unsigned char* bf;
+int* bf_ind;
+
+// get starting timepoint
+fsec hash_duration = std::chrono::microseconds::zero();
+fsec total_duration = std::chrono::microseconds::zero();
+
+
+vector<string> table_in;
+vector<string> table_out;
+
 void loadfile( string filename, vector<string>* table, int* num );
 HashType convert(int in);
+bool Get(string & key);
 
 int main(int argc, char * argv[])
 {
@@ -32,15 +54,12 @@ int main(int argc, char * argv[])
 	cout << command << endl;
 
 	// hash mode
-	int hash_mode = (argc>2)? atoi(argv[2]) : 2;
-	int hash_start = (hash_mode==6)? 0: hash_mode;
-	int hash_end = (hash_mode==6)? 6: hash_mode+1;
+	hash_mode = (argc>2)? atoi(argv[2]) : 2;
+	hash_start = (hash_mode==6)? 0: hash_mode;
+	hash_end = (hash_mode==6)? 6: hash_mode+1;
 
 	string file_in_set  = (argc>3)? argv[3] : "in/in_set.txt";
 	string file_out_set = (argc>4)? argv[4] : "in/out_set.txt";
-
-	vector<string> table_in;
-	vector<string> table_out;
 
 	int in_size = 0;
 	int out_size = 0;
@@ -53,21 +72,16 @@ int main(int argc, char * argv[])
 
 	// bf related
 	int bf_sf = 10; // bits per item
-	int bf_index = (int)floor(0.693*bf_sf); // bf_index == 6
-	int bf_size = in_size * bf_sf;
+	bf_index = (int)floor(0.693*bf_sf); // bf_index == 6
+	bf_size = in_size * bf_sf;
 	float width_f = log10((float)in_size) / log10(2.0);
 	int width = (int)ceil(width_f);
 	int bf_width = width + (float)(log10((float)bf_sf) / log10(2.0));
+	bf = new unsigned char[(int)ceil((float)bf_size/WORD)];
 
-	unsigned char bf[(int)ceil((float)bf_size/WORD)];
-
-	// get starting timepoint
-	fsec hash_duration = std::chrono::microseconds::zero();
-	fsec mem_duration = std::chrono::microseconds::zero();
-	fsec index_duration = std::chrono::microseconds::zero();
 
 	string input_str;
-	int bf_ind[bf_index];
+	bf_ind = new int[bf_index];
 	uint64_t digest;
 
     BFHash::hash_digests_ = vector<uint64_t> (1, 0);
@@ -75,9 +89,8 @@ int main(int argc, char * argv[])
     BFHash::num_filter_units_ = 1;
     BFHash::share_hash_across_levels_ = false;
     BFHash::share_hash_across_filter_units_ = false;
-    BFHash::prepareHashFuncs();
+    BFHash::prepareHashFuncs(convert(hash_mode));
 	constexpr unsigned char mask[WORD] = {0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80};
-
 	for ( int i=0 ; i<table_in.size(); i++ ) {
 		input_str = table_in[i];
 		BFHash bfHash( input_str );
@@ -104,61 +117,18 @@ int main(int argc, char * argv[])
 
 	bool result;
 
-	int num_n = 0;
-	int num_fp = 0;
-	int num_tp = 0;
+	num_n = 0;
+	num_fp = 0;
+	num_tp = 0;
 
+	auto total_start = high_resolution_clock::now();
 	for ( int i=0 ; i<table_out.size(); i++ ) {
 		input_str = table_out[i];
-		BFHash bfHash( input_str );
-		for ( int j=hash_start ; j<hash_end ; j++ ) {
-			HashType ht = convert(j);
-    		auto hash_start = high_resolution_clock::now(); 
-			digest = bfHash.get_hash_digest( input_str, ht, 0xbc9f1d34);
-    		auto hash_end = high_resolution_clock::now(); 
-    		hash_duration += duration_cast<microseconds>(hash_end - hash_start);
-
-			if (hash_mode==6){
-    			auto index_start = high_resolution_clock::now(); 
-				bf_ind[j] = (hash_mode==6)? digest%bf_size : 0;
-    			auto index_end = high_resolution_clock::now(); 
-    			index_duration += duration_cast<microseconds>(index_end - index_start);
-			}
-		}
-		if ( hash_mode<6 ){
-    		auto index_start = high_resolution_clock::now(); 
-			get_index(digest, bf_index, bf_size, bf_ind );
-    		auto index_end = high_resolution_clock::now(); 
-    		index_duration += duration_cast<microseconds>(index_end - index_start);
-		}
-		result = true;
-    	for( int k=0 ; k<bf_index ; k++ ){
-    		auto mem_start = high_resolution_clock::now(); 
-    		unsigned int refBit = bf_mem_access( bf, bf_ind[k] );
-    		auto mem_end = high_resolution_clock::now();
-    		mem_duration += duration_cast<microseconds>(mem_end - mem_start);
-
-    		if(refBit == 0){
-    			result = false;
-				break;
-    		}
-		}
-		if ( result==true ){
-			vector<string>::iterator iter;
-		    iter = find(table_in.begin(), table_in.end(), input_str);
-
-			// false positive
-   			if (iter == table_in.end()){
-				num_fp++;
-			}
-			else { // true positive
-				num_tp++;
-			}
-		}
-		else {
-			num_n++;
-		}
+		Get(input_str);
+		
 	}
+	auto total_end = high_resolution_clock::now();
+	total_duration = total_end - total_start;
 
 	// log file
 	string file_result = filename + "result.txt";
@@ -169,10 +139,12 @@ int main(int argc, char * argv[])
 	result_file << endl;
 
 	result_file << "hash   : " << hash_duration.count() << endl;
-	result_file << "mem    : " << mem_duration.count() << endl;
-	result_file << "index  : " << index_duration.count() << endl;
+	result_file << "total  : " << total_duration.count() << endl;
+	result_file << "other  : " << total_duration.count() - hash_duration.count() << endl;
 	result_file.close();
-
+	
+	delete bf_ind;
+	delete bf;
 	return 0;
 }
 
@@ -208,4 +180,50 @@ HashType convert(int in)
     else if(in == 3) return MurMur64;
     else if(in == 4) return XXhash;
     else if(in == 5) return CRC;
+}
+
+
+bool Get(string & key){
+    bool result = true;
+    uint64_t digest;
+    BFHash bfHash( key );
+    for ( int j=hash_start ; j<hash_end ; j++ ) {
+	HashType ht = convert(j);
+    	auto hash_start = high_resolution_clock::now(); 
+	digest = bfHash.get_hash_digest( key, ht, 0xbc9f1d34);
+    	auto hash_end = high_resolution_clock::now(); 
+    	hash_duration += duration_cast<microseconds>(hash_end - hash_start);
+
+	if (hash_mode==6){
+		bf_ind[j] = (hash_mode==6)? digest%bf_size : 0;
+	}
+    }
+    if ( hash_mode<6 ){
+	get_index(digest, bf_index, bf_size, bf_ind );
+    }
+    result = true;
+    for( int k=0 ; k<bf_index ; k++ ){
+    	unsigned int refBit = bf_mem_access( bf, bf_ind[k] );
+
+    	if(refBit == 0){
+    	    result = false;
+	    break;
+    	}
+    }
+    if ( result==true ){
+	vector<string>::iterator iter;
+        iter = find(table_in.begin(), table_in.end(), key);
+
+			// false positive
+   	if (iter == table_in.end()){
+		num_fp++;
+	}
+	else { // true positive
+		num_tp++;
+	}
+    }else {
+	num_n++;
+    }
+    return result;
+
 }

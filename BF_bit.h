@@ -29,7 +29,7 @@ public:
         key_ = key;
         getLevelwiseHashDigest(-1, hash_digests_);  
     } 
-    static void prepareHashFuncs(); 
+    static void prepareHashFuncs(HashType ht); 
     void getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests);
     uint64_t getFilterUnitwiseHashDigest(int filter_unit_no);
     static uint64_t get_hash_digest(string & key, HashType ht, uint32_t seed);
@@ -40,6 +40,5 @@ public:
 
 unsigned int bf_mem_access( unsigned char* BF, int index );
 void get_index( uint64_t hash_digest, int BF_index, int BF_size, int *index);
-void pgm_BF( string key, int level, int filter_unit_idx, int BF_size, int BF_index, unsigned char* BF );
 
 
