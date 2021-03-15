@@ -84,20 +84,14 @@ int main(int argc, char * argv[])
 	bf_ind = new int[bf_index];
 	uint64_t digest;
 
-    BFHash::hash_digests_ = vector<uint64_t> (1, 0);
-    BFHash::num_hash_indexes_ = bf_index;
-    BFHash::num_filter_units_ = 1;
-    BFHash::share_hash_across_levels_ = false;
-    BFHash::share_hash_across_filter_units_ = false;
-    BFHash::prepareHashFuncs(convert(hash_mode));
+  
 	constexpr unsigned char mask[WORD] = {0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80};
 	for ( int i=0 ; i<table_in.size(); i++ ) {
 		input_str = table_in[i];
-		BFHash bfHash( input_str );
 
 		for ( int j=hash_start ; j<hash_end ; j++ ) {
 			HashType ht = convert(j);
-			digest = bfHash.get_hash_digest( input_str, ht, 0xbc9f1d34);
+			digest = BFHash::get_hash_digest( input_str, ht, 0xbc9f1d34);
 
 			if (hash_mode==6){
 				bf_ind[j] = (hash_mode==6)? digest%bf_size : 0;
@@ -121,14 +115,14 @@ int main(int argc, char * argv[])
 	num_fp = 0;
 	num_tp = 0;
 
-	auto total_start = high_resolution_clock::now();
 	for ( int i=0 ; i<table_out.size(); i++ ) {
+	auto total_start = high_resolution_clock::now();
 		input_str = table_out[i];
 		Get(input_str);
-		
-	}
 	auto total_end = high_resolution_clock::now();
 	total_duration = total_end - total_start;
+		
+	}
 
 	// log file
 	string file_result = filename + "result.txt";
@@ -186,11 +180,10 @@ HashType convert(int in)
 bool Get(string & key){
     bool result = true;
     uint64_t digest;
-    BFHash bfHash( key );
     for ( int j=hash_start ; j<hash_end ; j++ ) {
 	HashType ht = convert(j);
     	auto hash_start = high_resolution_clock::now(); 
-	digest = bfHash.get_hash_digest( key, ht, 0xbc9f1d34);
+	digest = BFHash::get_hash_digest( key, ht, 0xbc9f1d34);
     	auto hash_end = high_resolution_clock::now(); 
     	hash_duration += duration_cast<microseconds>(hash_end - hash_start);
 

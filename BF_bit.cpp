@@ -98,8 +98,9 @@ void BFHash::getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests){
             }else if(share_hash_across_filter_units_ == 1){
                 hash_digests[0] = getFilterUnitwiseHashDigest(0);
                 uint64_t last_hash_digest = hash_digests[0];
+		uint64_t delta = last_hash_digest << 17 | last_hash_digest >> 15;
                 for(int i = 1; i < num_filter_units_; i++){
-                   last_hash_digest = last_hash_digest + (last_hash_digest << 17 | last_hash_digest >> 15); 
+                   last_hash_digest = last_hash_digest + delta; 
                    hash_digests[i] = last_hash_digest;
                 }
             }else{
@@ -109,7 +110,7 @@ void BFHash::getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests){
                 }else{
 		   HashType ht = filter_unit_hash_funcs_[0];
 		   HashType ht2 = MD5;
-                   for(auto ht_: { MD5, MurMurhash, CRC, XXhash, SHA2}){
+                   for(auto ht_: { MD5, MurMurhash, CRC, XXhash, MurMur64, SHA2}){
                       if(ht_ != ht){
                           ht2 = ht_;
                       }
