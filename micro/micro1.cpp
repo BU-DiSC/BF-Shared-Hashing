@@ -55,8 +55,8 @@ int main(int argc, char * argv[])
 
 	// hash mode
 	hash_mode = (argc>2)? atoi(argv[2]) : 2;
-	hash_start = (hash_mode==6)? 0: hash_mode;
-	hash_end = (hash_mode==6)? 6: hash_mode+1;
+	hash_start = (hash_mode==7)? 0: hash_mode;
+	hash_end = (hash_mode==7)? 7: hash_mode+1;
 
 	string file_in_set  = (argc>3)? argv[3] : "in/in_set.txt";
 	string file_out_set = (argc>4)? argv[4] : "in/out_set.txt";
@@ -72,7 +72,7 @@ int main(int argc, char * argv[])
 
 	// bf related
 	int bf_sf = 10; // bits per item
-	bf_index = (int)floor(0.693*bf_sf); // bf_index == 6
+	bf_index = (int)floor(0.693*bf_sf) + 1; // bf_index == 7
 	bf_size = in_size * bf_sf;
 	float width_f = log10((float)in_size) / log10(2.0);
 	int width = (int)ceil(width_f);
@@ -93,11 +93,11 @@ int main(int argc, char * argv[])
 			HashType ht = convert(j);
 			digest = BFHash::get_hash_digest( input_str, ht, 0xbc9f1d34);
 
-			if (hash_mode==6){
+			if (hash_mode==7){
 				bf_ind[j] = (hash_mode==6)? digest%bf_size : 0;
 			}
 		}
-		if ( hash_mode<6 ){
+		if ( hash_mode<7 ){
 			get_index(digest, bf_index, bf_size, bf_ind );
 		}
     	for( int k=0 ; k<bf_index ; k++ ){
@@ -174,6 +174,7 @@ HashType convert(int in)
     else if(in == 3) return MurMur64;
     else if(in == 4) return XXhash;
     else if(in == 5) return CRC;
+    else if(in == 6) return CITY;
 }
 
 
@@ -187,11 +188,11 @@ bool Get(string & key){
     	auto hash_end = high_resolution_clock::now(); 
     	hash_duration += duration_cast<microseconds>(hash_end - hash_start);
 
-	if (hash_mode==6){
+	if (hash_mode==7){
 		bf_ind[j] = (hash_mode==6)? digest%bf_size : 0;
 	}
     }
-    if ( hash_mode<6 ){
+    if ( hash_mode<7 ){
 	get_index(digest, bf_index, bf_size, bf_ind );
     }
     result = true;
