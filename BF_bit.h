@@ -10,7 +10,8 @@ enum HashType {
     MurMur64 = 0x3,
     XXhash = 0x4,
     CRC = 0x5,
-    Default = 0x6
+    CITY = 0x6,
+    Default = 0x7
 };
 
 class BFHash {
@@ -22,15 +23,15 @@ public:
     static bool reset;
     static HashType ht_;
     string key_;
-    static vector<uint64_t> hash_digests_;
+    static vector<uint64_t>* hash_digests_;
     static vector<HashType> filter_unit_hash_funcs_;
     static vector<uint32_t> filter_unit_seeds_;
     BFHash(string & key){
         key_ = key;
-        getLevelwiseHashDigest(-1, hash_digests_);  
+        hash_digests_ = getLevelwiseHashDigest(-1);  
     } 
     static void prepareHashFuncs(HashType ht); 
-    void getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests);
+    vector<uint64_t>* getLevelwiseHashDigest(int level);
     uint64_t getFilterUnitwiseHashDigest(int filter_unit_no);
     static uint64_t get_hash_digest(string & key, HashType ht, uint32_t seed);
 };

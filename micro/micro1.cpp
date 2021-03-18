@@ -2,6 +2,7 @@ using namespace std;
 
 #include "../stdafx.h"
 #include "../BF_bit.h"
+#include <set>
 #include <zstd.h>
 #include <cstring>
 
@@ -55,8 +56,8 @@ int main(int argc, char * argv[])
 
 	// hash mode
 	hash_mode = (argc>2)? atoi(argv[2]) : 2;
-	hash_start = (hash_mode==6)? 0: hash_mode;
-	hash_end = (hash_mode==6)? 6: hash_mode+1;
+	hash_start = (hash_mode==7)? 0: hash_mode;
+	hash_end = (hash_mode==7)? 7: hash_mode+1;
 
 	string file_in_set  = (argc>3)? argv[3] : "in/in_set.txt";
 	string file_out_set = (argc>4)? argv[4] : "in/out_set.txt";
@@ -72,41 +73,38 @@ int main(int argc, char * argv[])
 
 	// bf related
 	int bf_sf = 10; // bits per item
-	bf_index = (int)floor(0.693*bf_sf); // bf_index == 6
+
+	bf_index = (int)floor(0.693*bf_sf) + 1; // bf_index == 7
 	bf_size = in_size * bf_sf;
 	float width_f = log10((float)in_size) / log10(2.0);
 	int width = (int)ceil(width_f);
 	int bf_width = width + (float)(log10((float)bf_sf) / log10(2.0));
 	bf = new unsigned char[(int)ceil((float)bf_size/WORD)];
+	memset(bf, 0, (int)ceil((float)bf_size/WORD));
 
 
 	string input_str;
 	bf_ind = new int[bf_index];
 	uint64_t digest;
 
-    BFHash::hash_digests_ = vector<uint64_t> (1, 0);
-    BFHash::num_hash_indexes_ = bf_index;
-    BFHash::num_filter_units_ = 1;
-    BFHash::share_hash_across_levels_ = false;
-    BFHash::share_hash_across_filter_units_ = false;
-    BFHash::prepareHashFuncs(convert(hash_mode));
+  
 	constexpr unsigned char mask[WORD] = {0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80};
 	for ( int i=0 ; i<table_in.size(); i++ ) {
 		input_str = table_in[i];
-		BFHash bfHash( input_str );
 
 		for ( int j=hash_start ; j<hash_end ; j++ ) {
 			HashType ht = convert(j);
-			digest = bfHash.get_hash_digest( input_str, ht, 0xbc9f1d34);
+			digest = BFHash::get_hash_digest( input_str, ht, 0xbc9f1d34);
 
-			if (hash_mode==6){
-				bf_ind[j] = (hash_mode==6)? digest%bf_size : 0;
+			if (hash_mode==7){
+				bf_ind[j] = (hash_mode==7)? digest%bf_size : 0;
 			}
 		}
-		if ( hash_mode<6 ){
+		if ( hash_mode<7 ){
 			get_index(digest, bf_index, bf_size, bf_ind );
 		}
     	for( int k=0 ; k<bf_index ; k++ ){
+		
 			unsigned int ind_byte = bf_ind[k]/WORD;
 			unsigned char ref = bf[ind_byte];
 			bf[ind_byte] = ref | mask[bf_ind[k]%WORD];
@@ -128,7 +126,7 @@ int main(int argc, char * argv[])
 		
 	}
 	auto total_end = high_resolution_clock::now();
-	total_duration = total_end - total_start;
+	total_duration += duration_cast<microseconds>(total_end - total_start);
 
 	// log file
 	string file_result = filename + "result.txt";
@@ -180,35 +178,38 @@ HashType convert(int in)
     else if(in == 3) return MurMur64;
     else if(in == 4) return XXhash;
     else if(in == 5) return CRC;
+    else if(in == 6) return CITY;
 }
 
 
 bool Get(string & key){
     bool result = true;
     uint64_t digest;
-    BFHash bfHash( key );
+    	//auto hash_time_start = high_resolution_clock::now(); 
     for ( int j=hash_start ; j<hash_end ; j++ ) {
 	HashType ht = convert(j);
-    	auto hash_start = high_resolution_clock::now(); 
-	digest = bfHash.get_hash_digest( key, ht, 0xbc9f1d34);
-    	auto hash_end = high_resolution_clock::now(); 
-    	hash_duration += duration_cast<microseconds>(hash_end - hash_start);
+	digest = BFHash::get_hash_digest( key, ht, 0xbc9f1d34);
 
-	if (hash_mode==6){
-		bf_ind[j] = (hash_mode==6)? digest%bf_size : 0;
+	if (hash_mode==7){
+		bf_ind[j] = (hash_mode==7)? digest%bf_size : 0;
 	}
     }
-    if ( hash_mode<6 ){
+    if ( hash_mode<7 ){
 	get_index(digest, bf_index, bf_size, bf_ind );
     }
+    	//auto hash_time_end = high_resolution_clock::now(); 
+    	//hash_duration += duration_cast<microseconds>(hash_time_end - hash_time_start);
     result = true;
+    bool inc = false;
     for( int k=0 ; k<bf_index ; k++ ){
     	unsigned int refBit = bf_mem_access( bf, bf_ind[k] );
+	
 
     	if(refBit == 0){
     	    result = false;
 	    break;
     	}
+
     }
     if ( result==true ){
 	vector<string>::iterator iter;

@@ -55,5 +55,6 @@ lsm-emu
 
 hash_benchmark/test
 *perf.data*
-*/out/*
-micro/micro
+*out/*
+micro/micro1
+micro/micro2

@@ -1,0 +1,6 @@
+99101 899
+false positives : 899 0.00899
+
+hash   : 0
+total  : 0.665423
+other  : 0.665423

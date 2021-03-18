@@ -1,6 +1,8 @@
 #!/bin/bash
 
 dir="/scratchNVM5/jmun/workloads"
+log="./out/micro1/"
+mkdir -p ${log}
 wl=(
 K8_E1024_2M_exp_PQ_1.0
 K16_E1024_2M_exp_PQ_1.0
@@ -15,9 +17,9 @@ tries=3
 for w in "${wl[@]}"
 do
   echo $w
-  for hash in $(seq 0 1 6)
+  mkdir -p "${log}/${w}/"
+  for hash in $(seq 6 1 7)
   do
-    log="${w}/"
-    python exp.py ${tries} ./micro ${log} ${hash} ${dir}/${w}/in.txt ${dir}/${w}/out.txt > out/${log}/${hash}-result.txt
+    python exp.py ${tries} ./micro1 ./ ${hash} ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/${hash}-result.txt
   done
 done

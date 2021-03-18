@@ -1,6 +1,7 @@
 import os, sys
 
-HASH_FUNCTIONS = {'MurmurHash64','XXH64','md5','cal_sha_256','MurmurHash2','crc32_fast'}
+#HASH_FUNCTIONS = {'MurmurHash64','XXH64','md5','cal_sha_256','MurmurHash2','crc32_16bytes'}
+HASH_FUNCTIONS = {'BFHash::get_hash_digest'}
 
 def find_fst_percent(line):
 	start = -1
@@ -52,6 +53,8 @@ if __name__ == '__main__':
 					if h_str in line:
 						l = line.strip()
 						start,end = find_fst_percent(l)
+						if end == 0:
+							break
 						hash_total_pairs[0] = float(l[start:end])*0.01
 						break
 			if hash_total_pairs[0] != 0 and hash_total_pairs[1] != 0:
@@ -59,11 +62,12 @@ if __name__ == '__main__':
 		perf_data.append(hash_total_pairs)
 		f.close()
 		os.system("rm -rf tmp.txt")
-	#print(perf_data)
-	#print(raw_data)
+	print(perf_data)
+	print(raw_data)
+	print(fpr_data)
 	total = 0
 	hasht = 0
-	for t, h in raw_data:
+	for t,h in raw_data:
 		total += t
 		hasht += h
 	total = total/tries
@@ -73,12 +77,13 @@ if __name__ == '__main__':
 	for h, tt in perf_data:
 		ah += h
 		at += tt
+	print(total)
 	T = total/(at/tries)
-	#print((T*ah)/tries)
+	print((T*ah)/tries)
 	#print(hasht/tries)
 	ht = max((T*ah)/tries, hasht/tries)
 	print("Averag FPR : " + str(sum(fpr_data)/tries))
 	print("Average Hash : " + str(ht))
-	print("Average Others : " + str(total - ht))
+	print("Average Others : " + str(max(total - ht,0)))
 	
 						
