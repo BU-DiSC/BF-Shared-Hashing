@@ -26,7 +26,7 @@ public:
   int num_filterunits;
   bool fastlocal_bf;
   bool xxhash;
-  bool shahash;
+  bool cityhash;
 
 
   // share hash

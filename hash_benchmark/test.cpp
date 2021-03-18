@@ -10,6 +10,7 @@
 #include "../hash/md5.h"
 #include "../hash/murmurhash.h"
 #include "../hash/Crc32.h"
+#include "../hash/city.h"
 
 #include <functional>
 #include <string>
@@ -17,7 +18,7 @@
 
 using namespace std;
 
-uint64_t get_sha_hash(const char input[])
+inline uint64_t get_sha_hash(const char input[])
 {
     uint8_t hash[32];
     uint64_t result = 0;
@@ -55,7 +56,7 @@ char *mkrndstr(size_t length)
     return randomString;
 }
 
-XXH64_hash_t get_xx_hash(string key, uint32_t seed = 1)
+inline XXH64_hash_t get_xx_hash(string key, uint32_t seed = 1)
 {
     XXH64_hash_t const p = seed;
     const void *key_void = key.c_str();
@@ -64,7 +65,7 @@ XXH64_hash_t get_xx_hash(string key, uint32_t seed = 1)
     return h;
 }
 
-uint64_t get_md5_hash(string key)
+inline uint64_t get_md5_hash(string key)
 {
     uint64_t result = 0;
     memcpy(&result, md5(key).c_str(), sizeof(result));
@@ -72,7 +73,7 @@ uint64_t get_md5_hash(string key)
     return result;
 }
 
-uint64_t get_murmur_hash(string key, uint32_t seed = 1)
+inline uint64_t get_murmur_hash(string key, uint32_t seed = 1)
 {
     return MurmurHash2(key.c_str(), key.size(), seed);
 }
@@ -82,10 +83,14 @@ uint64_t get_murmur64_hash(string key, uint32_t seed = 1)
     return MurmurHash64A(key.c_str(), key.size(), seed);
 }
 
-uint64_t get_crc_hash(string key, uint32_t seed = 1)
+inline uint64_t get_crc_hash(string key, uint32_t seed = 1)
 {
     const void *key_void = key.c_str();
     return crc32_fast(key_void, (unsigned long)key.size(), seed);
+}
+
+inline uint64_t get_city64_hash(string  key){
+	return CityHash64(key.c_str(),key.size());
 }
 
 int main(int argc, char *argv[])
@@ -131,6 +136,10 @@ int main(int argc, char *argv[])
         else if (hash_type == "CRC")
         {
             uint64_t hash_i = get_crc_hash(s);
+        }
+	else if (hash_type == "CITY")
+        {
+            uint64_t hash_i = get_city64_hash(std::string(s));
         }
         else
         {

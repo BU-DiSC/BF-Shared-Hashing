@@ -38,7 +38,7 @@ int main(int argc, char * argv[])
 	if ( argc>6 ){
 		cout << "Error : requres 2 arguments." << endl;
 		cout << "   > argv[1] : output folder" << endl;
-		cout << "   > argv[2] : hash func (0:MD5, 1:SHA2, 2:MurMurhash, 3:MurMur64, 4:XXHash, 5:CRC)" << endl;
+		cout << "   > argv[2] : hash func (0:MD5, 1:SHA2, 2:MurMurhash, 3:MurMur64, 4:XXHash, 5:CRC, 6:CITY)" << endl;
 		cout << "   > argv[3] : hash mode (0:no-share, 1:share-1, 2:share-2)" << endl;
 		cout << "   > argv[4] : infile" << endl;
 		cout << "   > argv[5] : queryfile" << endl;
@@ -71,18 +71,18 @@ int main(int argc, char * argv[])
 
 	// key size
 	int key_size = table_in[0].size();
-	num_filter_units = 6;
+	num_filter_units = 7;
 
 	ht1 = convert(hash_func);
 	if(hash_func == 5){
 		ht2 = convert(3);
 	}else{
-		ht2 = convert((hash_func+1)%6);
+		ht2 = convert((hash_func+1)%7);
 	}
 
 	// bf related
 	int bf_sf = 10; // bits per item
-	bf_index = 6; // bf_index == 1
+	bf_index = 7; // bf_index == 1
 	bf_size = (int) ceil((in_size * bf_sf)/num_filter_units);
 	float width_f = log10((float)in_size) / log10(2.0);
 	int width = (int)ceil(width_f);
@@ -124,7 +124,7 @@ int main(int argc, char * argv[])
 
 		}else{ 
 			int j = 0;
-			for(auto ht:{ MD5, MurMurhash, CRC, XXhash, MurMur64, SHA2}){
+			for(auto ht:{ MD5, MurMurhash, CRC, XXhash, MurMur64, SHA2, CITY}){
 				digest1 = BFHash::get_hash_digest(input_str, ht,  0xbc9f1d34);
 				bf_ind[j++] = digest1%bf_size;
 			}
@@ -207,6 +207,7 @@ HashType convert(int in)
     else if(in == 3) return MurMur64;
     else if(in == 4) return XXhash;
     else if(in == 5) return CRC;
+    else if(in == 6) return CITY;
 }
 
 

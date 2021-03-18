@@ -1,0 +1,20 @@
+mkdir -p out/./
+BF program done
+mkdir -p out/./
+BF program done
+mkdir -p out/./
+BF program done
+mkdir -p out/./
+BF program done
+mkdir -p out/./
+BF program done
+mkdir -p out/./
+BF program done
+[[0.0395, 0.873], [0.0207, 0.8765999999999999], [0.0262, 0.8724]]
+[[0.19788, 0.0], [0.1984, 0.0], [0.205996, 0.0]]
+[0.00872, 0.00872, 0.00872]
+0.200758666667
+0.00661538855835
+Averag FPR : 0.00872
+Average Hash : 0.00661538855835
+Average Others : 0.194143278108

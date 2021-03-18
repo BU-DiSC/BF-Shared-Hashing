@@ -10,7 +10,8 @@ enum HashType {
     MurMur64 = 0x3,
     XXhash = 0x4,
     CRC = 0x5,
-    Default = 0x6
+    CITY = 0x6,
+    Default = 0x7
 };
 
 class BFHash {

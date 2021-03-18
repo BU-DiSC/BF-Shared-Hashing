@@ -5,10 +5,10 @@ log="./out/micro2/"
 mkdir -p ${log}
 wl=(
 K8_E1024_2M_exp_PQ_1.0
-K32_E1024_2M_exp_PQ_1.0
-K128_E1024_2M_exp_PQ_1.0
-K512_E1024_2M_exp_PQ_1.0
 )
+#K32_E1024_2M_exp_PQ_1.0
+#K128_E1024_2M_exp_PQ_1.0
+#K512_E1024_2M_exp_PQ_1.0
 tries=3
 for w in "${wl[@]}"
 do

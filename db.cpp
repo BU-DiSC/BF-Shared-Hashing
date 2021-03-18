@@ -78,8 +78,8 @@ db::db( options op )
     BFHash::share_hash_across_filter_units_ = op.share_hash_across_filter_units;
     if(op.xxhash){
        BFHash::prepareHashFuncs(XXhash);
-    }else if(op.shahash){
-       BFHash::prepareHashFuncs(SHA2);
+    }else if(op.cityhash){
+       BFHash::prepareHashFuncs(CITY);
     }else{
        BFHash::prepareHashFuncs(MurMur64);
     }

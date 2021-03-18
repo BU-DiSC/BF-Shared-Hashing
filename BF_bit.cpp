@@ -7,6 +7,7 @@ using namespace std;
 #include "hash/Crc32.h"
 #include "hash/sha-256.h"
 #include "hash/xxhash.h"
+#include "hash/citycrc.h"
 #include <functional>
 #include <string>
 
@@ -80,6 +81,10 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
             const void * key_void = key.c_str();
             result = crc32_fast( key_void, (unsigned long)key.size(), seed );
             break;
+        }
+        case CITY:{
+            const char * key_void = key.c_str();
+            result = CityHash64WithSeed( key_void, (unsigned long)key.size(), (unsigned long)seed);
         }
 	default:
             result = MurmurHash2(key.c_str(), key.size(), seed);
