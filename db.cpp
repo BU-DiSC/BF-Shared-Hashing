@@ -58,7 +58,7 @@ db::db( options op )
     mod_bf = op.elastic_filters;
     num_filter_units = op.num_filterunits;
     hash_digests = vector<uint64_t> (num_filter_units, 0);
-    BFHash::hash_digests_ = vector<uint64_t> (num_filter_units, 0);
+    BFHash::hash_digests_ = new vector<uint64_t> (num_filter_units, 0);
 	//experiment
     tries = op.tries;
     delay = op.delay;
@@ -78,6 +78,8 @@ db::db( options op )
     BFHash::share_hash_across_filter_units_ = op.share_hash_across_filter_units;
     if(op.xxhash){
        BFHash::prepareHashFuncs(XXhash);
+    }else if(op.shahash){
+       BFHash::prepareHashFuncs(SHA2);
     }else{
        BFHash::prepareHashFuncs(MurMur64);
     }
@@ -241,9 +243,9 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 					for( int i=0 ; i <end ; i++){
 					
 						BFHash bfHash (keys_one_sst[i]);	
-						vector<uint64_t> hash_digests = vector<uint64_t> (num_filter_units, 0);
-						bfHash.getLevelwiseHashDigest(l, hash_digests);
-						bf.AddKey(keys_one_sst[i], hash_digests[blo]);
+						vector<uint64_t>* hash_digests = bfHash.getLevelwiseHashDigest(l);
+						BFHash::reset = true;
+						bf.AddKey(keys_one_sst[i], hash_digests->at(blo));
 					}
 					bf.Finish();
 					flushBFfile(sst_bf_filename, bf.data_, bf.space_);
@@ -255,9 +257,9 @@ void db::Build( vector<vector<vector<string> > > reallocated_keys, bool bf_only 
 					for( int i=0 ; i <end ; i++){
 					
 						BFHash bfHash (keys_one_sst[i]);	
-						vector<uint64_t> hash_digests = vector<uint64_t> (num_filter_units, 0);
-						bfHash.getLevelwiseHashDigest(l, hash_digests);
-						bf.AddKey(keys_one_sst[i], hash_digests[blo]);
+						vector<uint64_t>* hash_digests = bfHash.getLevelwiseHashDigest(l);
+						BFHash::reset = true;
+						bf.AddKey(keys_one_sst[i], hash_digests->at(blo));
 					}
 					bf.Finish();
 					flushBFfile(sst_bf_filename, bf.data_, bf.space_);
@@ -313,6 +315,7 @@ string db::Get( string key, bool * result )
 		value = GetLevel( i, bfHash, key, result );
 		if ( *result == true ){
 			num_lookups++;
+			BFHash::reset = true;
  			total_end = high_resolution_clock::now();
 			total_duration += duration_cast<microseconds>(total_end - total_start);
 			return value;
@@ -333,14 +336,12 @@ string db::Get( string key, bool * result )
 	return "";
 }
 
-inline string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
+inline string db::GetLevel( int i, BFHash & bfHash, string & key, bool * result )
 {
 	// Binary search for fense pointer
 	int bf_no = binary_search(key, fence_pointers[i]);
 
  		//auto other_start = high_resolution_clock::now();
-	lnum++;
-	(lnum_histogram->at(i))++;
 
 	// no matching sst
 	if(bf_no < 0){
@@ -349,13 +350,13 @@ inline string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 		//other_duration += duration_cast<microseconds>(other_end - other_start);
 		return "";
 	}
-	auto hash_start = high_resolution_clock::now();
-	bfHash.getLevelwiseHashDigest(i, hash_digests);
-	auto hash_end = high_resolution_clock::now();
-	hash_duration += duration_cast<microseconds>(hash_end - hash_start);	
+	//auto hash_start = high_resolution_clock::now();
+	vector<uint64_t>* hash_digests = bfHash.getLevelwiseHashDigest(i);
+	//auto hash_end = high_resolution_clock::now();
+	//hash_duration += duration_cast<microseconds>(hash_end - hash_start);	
 
 
-	bool bf_result = QueryFilter( i, bf_no, hash_digests, key);
+	bool bf_result = QueryFilter( i, bf_no, hash_digests, bf_prime[i][bf_no]);
 		
 	//cout << "QueryFilter result : " << i << " " << bf_no << " " << bf_result << endl;
 
@@ -394,7 +395,7 @@ inline string db::GetLevel( int i, BFHash & bfHash, string key, bool * result )
 	return data;
 }
 
-inline bool db::QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, string key )
+inline bool db::QueryFilter( int i, int bf_no, vector<uint64_t>* hash_digests, char** bf_list)
 {
 	bool result = true;
 	int tmp_filter_size = filter_size;
@@ -407,16 +408,18 @@ inline bool db::QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, 
 	if(i == num_levels - 1 && bf_no == num_sstPerLevel[i]-1){
 		tmp_num_lines = last_num_lines;
 	}
-	
-	for(int blo = 0; blo < num_filter_units; blo++){
-		qnum++;
-		(qnum_histogram->at(blo))++;
-		
-                char* data = bf_prime[i][bf_no][blo];
-		if(!fastlocal_bf && !LegacyBF::MayMatch(hash_digests[blo], tmp_num_lines, num_probes, data)) return false;
-		if(fastlocal_bf && !FastLocalBF::MayMatch(hash_digests[blo], tmp_filter_size, num_probes, data)) return false;
 
+
+	if(fastlocal_bf){
+		for(int blo = 0; blo < num_filter_units; blo++){
+			if(!FastLocalBF::MayMatch(hash_digests->at(blo), tmp_filter_size, num_probes, bf_list[blo])) return false;
+		}
+	}else{
+		for(int blo = 0; blo < num_filter_units; blo++){
+			if(!LegacyBF::MayMatch(hash_digests->at(blo), tmp_num_lines, num_probes, bf_list[blo])) return false;
+		}
 	}
+	
 
 	return result;
 }
@@ -837,8 +840,8 @@ void db::PrintStat()
 	result_file << "Total query time:\t" << total  << endl;
 	total -= data_duration.count()/tries;
 	result_file << "Data access time:\t" << data_duration.count()/tries << endl;
-	total -= hash_duration.count()/tries;
-	result_file << "Hash time:\t" << hash_duration.count()/tries << endl;
+	//total -= hash_duration.count()/tries;
+	//result_file << "Hash time:\t" << hash_duration.count()/tries << endl;
 	result_file << "Other time:\t" << total << endl;
 	//cout << "Other2 time:\t" << other2_duration.count()/tries << endl;
 	

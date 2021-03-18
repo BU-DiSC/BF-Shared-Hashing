@@ -64,9 +64,10 @@ if __name__ == '__main__':
 		os.system("rm -rf tmp.txt")
 	print(perf_data)
 	print(raw_data)
+	print(fpr_data)
 	total = 0
 	hasht = 0
-	for h,t in raw_data:
+	for t,h in raw_data:
 		total += t
 		hasht += h
 	total = total/tries

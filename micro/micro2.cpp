@@ -74,7 +74,11 @@ int main(int argc, char * argv[])
 	num_filter_units = 6;
 
 	ht1 = convert(hash_func);
-	ht2 = convert((hash_func+1)%6);
+	if(hash_func == 5){
+		ht2 = convert(3);
+	}else{
+		ht2 = convert((hash_func+1)%6);
+	}
 
 	// bf related
 	int bf_sf = 10; // bits per item
@@ -85,6 +89,7 @@ int main(int argc, char * argv[])
 	bf = new unsigned char*[num_filter_units];
 	for(int i = 0; i < num_filter_units; i++){
 		bf[i] = new unsigned char[(int)ceil((float)bf_size/WORD)];
+		memset(bf[i],0,(int)ceil((float)bf_size/WORD));
 	}
 
 
@@ -140,14 +145,14 @@ int main(int argc, char * argv[])
 	num_fp = 0;
 	num_tp = 0;
 
-	for ( int i=0 ; i<table_out.size(); i++ ) {
 	auto total_start = high_resolution_clock::now();
+	for ( int i=0 ; i<table_out.size(); i++ ) {
 		input_str = table_out[i];
 		Get(input_str);
-	auto total_end = high_resolution_clock::now();
-	total_duration = total_end - total_start;
 		
 	}
+	auto total_end = high_resolution_clock::now();
+	total_duration += duration_cast<microseconds>(total_end - total_start);
 
 	// log file
 	string file_result = filename + "result.txt";
@@ -209,7 +214,7 @@ bool Get(string & key){
     bool result = true;
     uint64_t digest1;
     uint64_t digest2;
-    auto hash_start = high_resolution_clock::now(); 
+    //auto hash_start = high_resolution_clock::now(); 
     if(hash_mode == 1){
 	digest1 = BFHash::get_hash_digest( key, ht1, 0xbc9f1d34);
 	get_index(digest1, bf_index, bf_size, bf_ind );
@@ -228,8 +233,8 @@ bool Get(string & key){
 	}
 
     }
-    auto hash_end = high_resolution_clock::now(); 
-    hash_duration += duration_cast<microseconds>(hash_end - hash_start);
+    //auto hash_end = high_resolution_clock::now(); 
+    //hash_duration += duration_cast<microseconds>(hash_end - hash_start);
 
     
     result = true;

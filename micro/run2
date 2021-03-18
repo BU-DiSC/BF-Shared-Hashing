@@ -5,11 +5,8 @@ log="./out/micro2/"
 mkdir -p ${log}
 wl=(
 K8_E1024_2M_exp_PQ_1.0
-K16_E1024_2M_exp_PQ_1.0
 K32_E1024_2M_exp_PQ_1.0
-K64_E1024_2M_exp_PQ_1.0
 K128_E1024_2M_exp_PQ_1.0
-K256_E1024_2M_exp_PQ_1.0
 K512_E1024_2M_exp_PQ_1.0
 )
 tries=3
@@ -18,7 +15,7 @@ do
   echo $w
   mkdir -p "${log}/${w}/"
   python exp.py ${tries} ./micro2 ./ 0 0 ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/0-share0-result.txt
-  for hash in $(seq 0 1 5)
+  for hash in $(seq 3 1 5)
   do
     python exp.py ${tries} ./micro2 ./ ${hash} 2 ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/${hash}-share2-result.txt
     python exp.py ${tries} ./micro2 ./ ${hash} 1 ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/${hash}-share1-result.txt

@@ -2,6 +2,7 @@ using namespace std;
 
 #include "../stdafx.h"
 #include "../BF_bit.h"
+#include <set>
 #include <zstd.h>
 #include <cstring>
 
@@ -72,12 +73,15 @@ int main(int argc, char * argv[])
 
 	// bf related
 	int bf_sf = 10; // bits per item
-	bf_index = (int)floor(0.693*bf_sf); // bf_index == 6
-	bf_size = in_size * bf_sf;
+	bf_index = (int)floor(0.693*10); // bf_index == 6
+	cout << "bf_index " << bf_index << endl;
+	bf_size = (in_size * bf_sf*1.0);
+	cout << bf_size << endl;
 	float width_f = log10((float)in_size) / log10(2.0);
 	int width = (int)ceil(width_f);
 	int bf_width = width + (float)(log10((float)bf_sf) / log10(2.0));
 	bf = new unsigned char[(int)ceil((float)bf_size/WORD)];
+	memset(bf, 0, (int)ceil((float)bf_size/WORD));
 
 
 	string input_str;
@@ -101,6 +105,7 @@ int main(int argc, char * argv[])
 			get_index(digest, bf_index, bf_size, bf_ind );
 		}
     	for( int k=0 ; k<bf_index ; k++ ){
+		
 			unsigned int ind_byte = bf_ind[k]/WORD;
 			unsigned char ref = bf[ind_byte];
 			bf[ind_byte] = ref | mask[bf_ind[k]%WORD];
@@ -115,14 +120,14 @@ int main(int argc, char * argv[])
 	num_fp = 0;
 	num_tp = 0;
 
-	for ( int i=0 ; i<table_out.size(); i++ ) {
 	auto total_start = high_resolution_clock::now();
+	for ( int i=0 ; i<table_out.size(); i++ ) {
 		input_str = table_out[i];
 		Get(input_str);
-	auto total_end = high_resolution_clock::now();
-	total_duration = total_end - total_start;
 		
 	}
+	auto total_end = high_resolution_clock::now();
+	total_duration += duration_cast<microseconds>(total_end - total_start);
 
 	// log file
 	string file_result = filename + "result.txt";
@@ -180,12 +185,10 @@ HashType convert(int in)
 bool Get(string & key){
     bool result = true;
     uint64_t digest;
+    	//auto hash_time_start = high_resolution_clock::now(); 
     for ( int j=hash_start ; j<hash_end ; j++ ) {
 	HashType ht = convert(j);
-    	auto hash_start = high_resolution_clock::now(); 
 	digest = BFHash::get_hash_digest( key, ht, 0xbc9f1d34);
-    	auto hash_end = high_resolution_clock::now(); 
-    	hash_duration += duration_cast<microseconds>(hash_end - hash_start);
 
 	if (hash_mode==6){
 		bf_ind[j] = (hash_mode==6)? digest%bf_size : 0;
@@ -194,14 +197,19 @@ bool Get(string & key){
     if ( hash_mode<6 ){
 	get_index(digest, bf_index, bf_size, bf_ind );
     }
+    	//auto hash_time_end = high_resolution_clock::now(); 
+    	//hash_duration += duration_cast<microseconds>(hash_time_end - hash_time_start);
     result = true;
+    bool inc = false;
     for( int k=0 ; k<bf_index ; k++ ){
     	unsigned int refBit = bf_mem_access( bf, bf_ind[k] );
+	
 
     	if(refBit == 0){
     	    result = false;
 	    break;
     	}
+
     }
     if ( result==true ){
 	vector<string>::iterator iter;

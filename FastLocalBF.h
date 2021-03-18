@@ -26,6 +26,8 @@ public:
     assert(millibits_per_key_ >= 1000);
   }
 
+  ~FastLocalBF(){};
+
   void AddKey(const string & key, uint64_t hash) {
     hash_entries_.push_back(hash);
   }

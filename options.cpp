@@ -16,7 +16,7 @@ int options::parse( int argc, char *argv[] )
   args::ValueFlag<std::string> query_path_cmd(group1, "query_workload", "path for query workload files", {'q', "query_workload"});
 
   args::ValueFlag<int> size_ratio_cmd(group1, "T", "The size ratio of two adjacent levels  [def: 2]", {'T', "size_ratio"});
-  args::ValueFlag<int> buffer_size_in_pages_cmd(group1, "P", "The number of pages that can fit into a buffer [def: 128]", {'P', "buffer_size_in_pageas"});
+  args::ValueFlag<int> buffer_size_in_pages_cmd(group1, "P", "The number of pages that can fit into a buffer [def: 1024]", {'P', "buffer_size_in_pageas"});
   args::ValueFlag<int> entries_per_page_cmd(group1, "B", "The number of entries that fit into a page [def: 128]", {'B', "entries_per_page"});
   args::ValueFlag<int> entry_size_cmd(group1, "E", "The size of a key-value pair inserted into DB [def: 64 B]", {'E', "entry_size"});
   args::ValueFlag<int> key_size_cmd(group1, "K", "The size of a key inserted into DB [def: 16 B]", {'K', "key_size"});
@@ -25,6 +25,7 @@ int options::parse( int argc, char *argv[] )
   args::Flag elastic_filters_cmd(group1, "elastic_bf", "Enable elastic filters. ", {"elastic", "enable_elastic_filters"});
   args::Flag fastlocal_bf_cmd(group1, "fastlocal_bf", "Enable FastLocal Bloom filters. [def: false]", {"FLBF", "enable_fast_local_filters"});
   args::Flag xxhash_cmd(group1, "xxhash", "Enable XXHash. [def: false]", {"XX", "enable_xxhash"});
+  args::Flag shahash_cmd(group1, "shahash", "Enable SHA-256 Hash (depcrecated by XXHash). [def: false]", {"SHA-256", "enable_shahash"});
   args::ValueFlag<int> num_filterunits_cmd(group1, "num_funit", "The number of filter units for elastic filter. [def: 2] ", {"num_funit", "num_filter_units"});
 
   args::Flag share_hash_across_levels_cmd(group1, "shared_hash_level", "Enable sharing hash across levels ", {"lvl_share_hash", "enable_leveled_shared_hashing"});
@@ -64,7 +65,7 @@ int options::parse( int argc, char *argv[] )
   query_path = query_path_cmd? args::get(query_path_cmd) : "Z0_zipfian.workload.txt";
 
   // basic LSM setting
-  size_ratio = size_ratio_cmd? args::get(size_ratio_cmd) : 4;
+  size_ratio = size_ratio_cmd? args::get(size_ratio_cmd) : 2;
   buffer_size_in_pages = buffer_size_in_pages_cmd? args::get(buffer_size_in_pages_cmd) : 1024;
   entries_per_page = entries_per_page_cmd? args::get(entries_per_page_cmd) : 64;
   entry_size = entry_size_cmd? args::get(entry_size_cmd) : 64;
@@ -73,6 +74,7 @@ int options::parse( int argc, char *argv[] )
   bits_per_key = bits_per_key_cmd? args::get(bits_per_key_cmd) : 10;
   fastlocal_bf = fastlocal_bf_cmd? args::get(fastlocal_bf_cmd) : false;
   xxhash = xxhash_cmd ? args::get(xxhash_cmd) : false;
+  shahash = shahash_cmd ? args::get(shahash_cmd) : false;
   elastic_filters = elastic_filters_cmd? args::get(elastic_filters_cmd) : false;
   num_filterunits = num_filterunits_cmd? args::get(num_filterunits_cmd) : 2;
   if(!elastic_filters){

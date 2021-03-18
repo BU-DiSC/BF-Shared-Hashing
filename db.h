@@ -62,7 +62,7 @@ private:
 	// get starting timepoint
 	fsec total_duration = std::chrono::microseconds::zero();
 	fsec data_duration = std::chrono::microseconds::zero();
-	fsec hash_duration = std::chrono::microseconds::zero();
+	//fsec hash_duration = std::chrono::microseconds::zero();
 
 	uint64_t total_n = 0;
 	uint64_t total_p = 0;
@@ -99,8 +99,8 @@ private:
 	int ReadSettings();
 
 	string Get( string key, bool * result );
-	string GetLevel( int i, BFHash & bfHash, string key, bool * result );
-    bool QueryFilter( int i, int bf_no, vector<uint64_t> & hash_digests, string key);
+	string GetLevel( int i, BFHash & bfHash, string & key, bool * result );
+    bool QueryFilter( int i, int bf_no, vector<uint64_t>* hash_digests, char** bf_list);
 
 
 	void read_bf(string filename, char* bf, int size);

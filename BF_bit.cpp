@@ -18,12 +18,12 @@ bool BFHash::reset = true;
 HashType BFHash::ht_ = MurMur64;
 vector<HashType> BFHash::filter_unit_hash_funcs_ = vector<HashType> ();
 vector<uint32_t> BFHash::filter_unit_seeds_ = vector<uint32_t> ();
-vector<uint64_t> BFHash::hash_digests_ = vector<uint64_t> ();
+vector<uint64_t>* BFHash::hash_digests_ = nullptr;
 
 void BFHash:: prepareHashFuncs(HashType ht){
    ht_ = ht;
    filter_unit_hash_funcs_ = vector<HashType> (num_filter_units_,  ht);
-   hash_digests_ = vector<uint64_t> (num_filter_units_, 0);
+   hash_digests_ = new vector<uint64_t> (num_filter_units_, 0);
    filter_unit_seeds_ = vector<uint32_t> (1, 0xbc9f1d34);
    uint32_t last_seed = 0xbc9f1d34;
    for(int i = 1; i < num_filter_units_; i++){
@@ -89,24 +89,27 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
     return result;
 }
 
-void BFHash::getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests){
-        if((!share_hash_across_levels_ && level != -1)|| hash_digests_.size() == 0 || reset){
+vector<uint64_t>* BFHash::getLevelwiseHashDigest(int level){
+        if((!share_hash_across_levels_ && level != -1)|| hash_digests_->size() == 0 || reset){
+	    if(hash_digests_ == nullptr){
+		hash_digests_ = new vector<uint64_t>(num_filter_units_, 0);
+	    }
 	    if(share_hash_across_filter_units_ == 0){
                 for(int i = 0; i < num_filter_units_; i++){
-                    hash_digests[i] = getFilterUnitwiseHashDigest(i);
+                    hash_digests_->at(i) = getFilterUnitwiseHashDigest(i);
                 }
             }else if(share_hash_across_filter_units_ == 1){
-                hash_digests[0] = getFilterUnitwiseHashDigest(0);
-                uint64_t last_hash_digest = hash_digests[0];
+                uint64_t last_hash_digest = getFilterUnitwiseHashDigest(0);
+                hash_digests_->at(0) = last_hash_digest;
 		uint64_t delta = last_hash_digest << 17 | last_hash_digest >> 15;
                 for(int i = 1; i < num_filter_units_; i++){
                    last_hash_digest = last_hash_digest + delta; 
-                   hash_digests[i] = last_hash_digest;
+                   hash_digests_->at(i) = last_hash_digest;
                 }
             }else{
                 uint64_t hash_digest1 = getFilterUnitwiseHashDigest(0);
                 if(num_filter_units_ == 1){
-                   hash_digests[0] = hash_digest1;
+                   hash_digests_->at(0) = hash_digest1;
                 }else{
 		   HashType ht = filter_unit_hash_funcs_[0];
 		   HashType ht2 = MD5;
@@ -118,16 +121,14 @@ void BFHash::getLevelwiseHashDigest(int level, vector<uint64_t> & hash_digests){
                    uint32_t seed = filter_unit_seeds_[0];
 	           uint64_t hash_digest2 = get_hash_digest(key_, ht2, seed + (seed << 17 | seed >> 15));
                    for(int i = 0; i < num_filter_units_; i++){
-                       hash_digests[i] = hash_digest1 + i*hash_digest2;
+                       hash_digests_->at(i) = hash_digest1 + i*hash_digest2;
                    }
                 }
                 
             }
-            hash_digests_ = hash_digests;
 	    reset = false;
-	}else if(level != -1){
-            hash_digests = hash_digests_;
-        }
+	}
+	return hash_digests_;
 }
 
 
@@ -151,7 +152,7 @@ void get_index( uint64_t hash_digest, int BF_index, int BF_size, int *index )
 unsigned int bf_mem_access(unsigned char* BF, int index )
 {
 	unsigned char mask[WORD] = {0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80};
-
+	
 	unsigned int refBit = BF[index/WORD] & mask[index%WORD];
 	//printf("Q: %d %02hhx %02hhx\n", refBit, BF[index/WORD], mask[index%WORD]);
 
