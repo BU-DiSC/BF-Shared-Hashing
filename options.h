@@ -36,6 +36,7 @@ public:
   // experiments
   int tries;
   int delay;
+  bool directIO;
 
   int parse(int argc, char *argv[]);
 };

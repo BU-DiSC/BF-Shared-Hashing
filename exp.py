@@ -38,7 +38,7 @@ if __name__ == '__main__':
 		os.system("perf report > tmp.txt")
 		
 		f = open("tmp.txt","r")
-		hash_bs_triples = [0,0,0,0]
+		hash_bs_triples = [0,0,0,0,0]
 		for line in f:
 			if '[.] db::binary_search' in line:
 				l = line.strip()
@@ -52,6 +52,12 @@ if __name__ == '__main__':
 				if end == 0:
 					break
 				hash_bs_triples[2] = float(l[start:end])*0.01
+			elif '[.] db::GetFromData' in line and hash_bs_triples[4] == 0:
+				l = line.strip()
+				start,end = find_fst_percent(l)		
+				if end == 0:
+					break
+				hash_bs_triples[4] = float(l[start:end])*0.01
 			elif '[.] db::QueryFilter' in line and hash_bs_triples[3] == 0:
 				l = line.strip()
 				start,end = find_fst_percent(l)		
@@ -67,7 +73,7 @@ if __name__ == '__main__':
 						start,end = find_fst_percent(l)
 						hash_bs_triples[0] = float(l[start:end])*0.01
 						break
-			if hash_bs_triples[0] != 0 and hash_bs_triples[1] != 0 and hash_bs_triples[2] != 0 and hash_bs_triples[3] != 0:
+			if hash_bs_triples[0] != 0 and hash_bs_triples[1] != 0 and hash_bs_triples[2] != 0 and hash_bs_triples[3] != 0 and hash_bs_triples[4] != 0:
 				break
 		perf_data.append(hash_bs_triples)
 		f.close()
@@ -82,25 +88,29 @@ if __name__ == '__main__':
 		data += d
 		total_fpr += fpr
 	print("FPR : " + str(total_fpr/tries))
-	print("Average Data Access : " + str(data/tries))
+	data = data/tries
+	print("Average Data Access : " + str(data))
 	total = total/tries
+	
 	#print(total)
 	ah = 0.0
 	ab = 0.0
 	at = 0.0
 	af = 0.0
-	for h, b, tt, f in perf_data:
+	adc = 0.0
+	for h, b, tt, f, dc in perf_data:
 		ah += h
 		ab += b	
 		at += tt
 		af += f
-	T = total/(at/tries)
+		adc += dc
+	T = (total - data)/(1-adc/tries)
 	ht = (T*ah)/tries
 	bst = (T*ab)/tries
 	ft = (T*af)/tries
 	print("Average Hash : " + str(ht))
 	print("Average BS : " + str(bst))
 	print("Average QueryFilter : " + str(ft))
-	print("Average Others : " + str(total - data/tries - ht - bst - ft))
+	print("Average Others : " + str(T*at/tries - ht - bst - ft))
 	
 						

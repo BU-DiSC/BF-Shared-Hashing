@@ -35,6 +35,7 @@ int options::parse( int argc, char *argv[] )
 
   args::ValueFlag<int> tries_cmd(group1, "number_of_tries", "#Tries to run the experiment (measured statistics would be averaged across #tries [def: 5]", { "tries"});
   args::ValueFlag<int> delay_cmd(group1, "delay", "Read delay (nanos)  added by human[def: 0]", {'D', "delay"});
+  args::Flag direct_IO_cmd(group1, "directIO", "Enable direct IO (DO NOT Enable this using RAM disk!)", {"DIO", "direct_IO"});
 
   try {
       parser.ParseCLI(argc, argv);
@@ -84,6 +85,7 @@ int options::parse( int argc, char *argv[] )
   share_hash_across_levels = share_hash_across_levels_cmd ? args::get(share_hash_across_levels_cmd): false;
   share_hash_across_filter_units = share_hash_across_filter_units_cmd ? args::get(share_hash_across_filter_units_cmd) : false;
 
+  directIO = direct_IO_cmd ? args::get(direct_IO_cmd) : false;
   tries = tries_cmd ? args::get(tries_cmd) : 5;
   if(tries <= 0){
     cout << "Warning: tries has to be a positive number. Reset to the default number 5" << endl;

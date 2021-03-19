@@ -19,6 +19,7 @@ private:
 	string data_dir;
 	string settings_file;
 	string fence_file;
+	int file_read_flags;
 
     // db parameter
     int P;

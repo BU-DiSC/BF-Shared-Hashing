@@ -62,6 +62,11 @@ db::db( options op )
 	//experiment
     tries = op.tries;
     delay = op.delay;
+    file_read_flags = O_RDWR | O_SYNC;
+    if(op.directIO){
+        file_read_flags = O_RDWR | O_DIRECT | O_SYNC;
+
+    }
 
     int bf_size = (buffer_size * bpk);
 	int bf_index = (int)floor(0.693*bpk + 0.5);
@@ -462,10 +467,9 @@ inline string db::GetFromData( int i, int bf_no, int index_pos, string key, bool
 inline int db::read_data ( string filename, int pos, int key_size, vector<string> & data_block )
 {
 	//int flags = O_RDWR | O_DIRECT | O_SYNC;
-	int flags = O_RDWR;
 	mode_t mode=S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;//644
 
-	int fd = open(filename.c_str(), flags, mode );
+	int fd = open(filename.c_str(), file_read_flags, mode );
 	if (fd <= 0) {
     	printf("Error %s\n", strerror(errno));
 		cout << "Cannot open partiton file " << filename << endl;
