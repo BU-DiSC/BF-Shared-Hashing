@@ -11,4 +11,4 @@ test: test.cpp ../hash/sha-256.c ../hash/xxhash.o ../hash/md5.cpp ../hash/murmur
 
 .PHONY: clean
 clean:
-	rm test *.o
+	rm test 

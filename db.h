@@ -63,7 +63,7 @@ private:
 	// get starting timepoint
 	fsec total_duration = std::chrono::microseconds::zero();
 	fsec data_duration = std::chrono::microseconds::zero();
-	//fsec hash_duration = std::chrono::microseconds::zero();
+	fsec hash_duration = std::chrono::microseconds::zero();
 
 	uint64_t total_n = 0;
 	uint64_t total_p = 0;

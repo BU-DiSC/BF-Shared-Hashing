@@ -1,7 +1,7 @@
 import os, sys
 
-#HASH_FUNCTIONS = {'MurmurHash64','XXH64','md5','cal_sha_256','MurmurHash2','crc32_16bytes'}
-HASH_FUNCTIONS = {'BFHash::get_hash_digest'}
+HASH_FUNCTIONS = {'MurmurHash64','XXH64','md5','cal_sha_256','MurmurHash2','crc32_16bytes'}
+#HASH_FUNCTIONS = {'BFHash::get_hash_digest'}
 
 def find_fst_percent(line):
 	start = -1
@@ -19,9 +19,20 @@ if __name__ == '__main__':
 	command = " ".join(sys.argv[2:])
 	perf_data = []
 	raw_data = []
-	fpr_data = []
+	fpr = 1.0
+	os.system(command + " 1")
+	f = open("out/result.txt")
+	for line in f:
+		tmp = line.strip().split(":")
+		tmp[0] = tmp[0].strip()
+		if "false positives" in line:
+			fpr = float(tmp[-1].strip().split(' ')[-1])
+			break
+	f.close()
+			
 	for i in range(tries):
 		
+			
 		os.system(command)
 		f = open("out/result.txt")
 		total_hash_pair = [0,0]
@@ -32,11 +43,9 @@ if __name__ == '__main__':
 				total_hash_pair[0] = float(tmp[1].strip())
 			elif tmp[0] == "hash":
 				total_hash_pair[1] = float(tmp[1].strip())
-			elif "false positives" in line:
-				fpr_data.append(float(tmp[-1].strip().split(' ')[-1]))
 		raw_data.append(total_hash_pair)	
 		f.close()
-		os.system("perf record -g " + command)
+		os.system("perf record -g --inherit " + command)
 		os.system("perf report > tmp.txt")
 		
 		f = open("tmp.txt","r")
@@ -64,25 +73,27 @@ if __name__ == '__main__':
 		os.system("rm -rf tmp.txt")
 	print(perf_data)
 	print(raw_data)
-	print(fpr_data)
+	print(fpr)
 	total = 0
 	hasht = 0
 	for t,h in raw_data:
 		total += t
 		hasht += h
 	total = total/tries
+	hasht = hasht/tries
 	#print(total)
-	ah = 0.0
-	at = 0.0
-	for h, tt in perf_data:
-		ah += h
-		at += tt
-	print(total)
-	T = total/(at/tries)
-	print((T*ah)/tries)
+	#ah = 0.0
+	#at = 0.0
+	#for h, tt in perf_data:
+	#	ah += h
+	#	at += tt
+	#print(total)
+	#T = total/(at/tries)
+	#print((T*ah)/tries)
 	#print(hasht/tries)
-	ht = max((T*ah)/tries, hasht/tries)
-	print("Averag FPR : " + str(sum(fpr_data)/tries))
+	#ht = max((T*ah)/tries, hasht/tries)
+	ht = hasht
+	print("Averag FPR : " + str(fpr))
 	print("Average Hash : " + str(ht))
 	print("Average Others : " + str(max(total - ht,0)))
 	

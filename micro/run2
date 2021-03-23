@@ -15,15 +15,18 @@ K512_E1024_2M_exp_PQ_1.0
 #K32_E1024_2M_exp_PQ_1.0
 #K128_E1024_2M_exp_PQ_1.0
 #K512_E1024_2M_exp_PQ_1.0
+HASH=(4 5 6)
 tries=3
 for w in "${wl[@]}"
 do
   echo $w
   mkdir -p "${log}/${w}/"
   python exp.py ${tries} ./micro2 ./ 0 0 ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/0-share0-result.txt
-  for hash in $(seq 0 1 6)
+  python exp.py ${tries} ./micro2 ./ 3 1  ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/3-share1-result.txt
+  python exp.py ${tries} ./micro2 ./ 3 2  ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/3-share2-result.txt
+  for hash in $(seq 4 1 6)
   do
+    python exp.py ${tries} ./micro2 ./ ${hash} 1  ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/${hash}-share1-result.txt
     python exp.py ${tries} ./micro2 ./ ${hash} 2 ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/${hash}-share2-result.txt
-    python exp.py ${tries} ./micro2 ./ ${hash} 1 ${dir}/${w}/in.txt ${dir}/${w}/out.txt > ${log}/${w}/${hash}-share1-result.txt
   done
 done

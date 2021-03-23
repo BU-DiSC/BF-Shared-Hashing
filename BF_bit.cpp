@@ -84,7 +84,8 @@ uint64_t BFHash::get_hash_digest(string & key, HashType ht, uint32_t seed){
         }
         case CITY:{
             const char * key_void = key.c_str();
-            result = CityHash64WithSeed( key_void, (unsigned long)key.size(), (unsigned long)seed);
+            result = CityHash64WithSeed( key_void, (unsigned long)key.size(), (unsigned long) seed);
+	    break;
         }
 	default:
             result = MurmurHash2(key.c_str(), key.size(), seed);
@@ -118,9 +119,10 @@ vector<uint64_t>* BFHash::getLevelwiseHashDigest(int level){
                 }else{
 		   HashType ht = filter_unit_hash_funcs_[0];
 		   HashType ht2 = MD5;
-                   for(auto ht_: { MD5, MurMurhash, CRC, XXhash, MurMur64, SHA2}){
-                      if(ht_ != ht){
-                          ht2 = ht_;
+                   for(auto t_ht: { MD5, MurMurhash, CRC, XXhash, MurMur64, SHA2}){
+                      if(t_ht != ht){
+                          ht2 = t_ht;
+			  break;
                       }
                    }
                    uint32_t seed = filter_unit_seeds_[0];

@@ -17,7 +17,7 @@ int bf_size;
 unsigned char** bf;
 int* bf_ind;
 int num_filter_units;
-
+bool fpr;
 HashType ht1;
 HashType ht2;
 
@@ -35,13 +35,14 @@ bool Get(string & key);
 
 int main(int argc, char * argv[])
 {
-	if ( argc>6 ){
-		cout << "Error : requres 2 arguments." << endl;
+	if ( argc>7 ){
+		cout << "Error : requres 6 arguments." << endl;
 		cout << "   > argv[1] : output folder" << endl;
 		cout << "   > argv[2] : hash func (0:MD5, 1:SHA2, 2:MurMurhash, 3:MurMur64, 4:XXHash, 5:CRC, 6:CITY)" << endl;
 		cout << "   > argv[3] : hash mode (0:no-share, 1:share-1, 2:share-2)" << endl;
 		cout << "   > argv[4] : infile" << endl;
 		cout << "   > argv[5] : queryfile" << endl;
+		cout << "   > argv[6] : calculate fpr (0:no, 1:yes)" << endl;
 		return 0;
 	}
 
@@ -63,6 +64,7 @@ int main(int argc, char * argv[])
 
 	string file_in_set  = (argc>4)? argv[4] : "in/in_set.txt";
 	string file_out_set = (argc>5)? argv[5] : "in/out_set.txt";
+	fpr = (argc>6)? atoi(argv[6]): 0;
 
 	int in_size = 0;
 	int out_size = 0;
@@ -74,12 +76,10 @@ int main(int argc, char * argv[])
 	num_filter_units = 7;
 
 	ht1 = convert(hash_func);
-	if(hash_func == 5){
-		ht2 = convert(3);
-	}else{
-		ht2 = convert((hash_func+1)%7);
-	}
-
+	ht2 = convert(3);
+	if(hash_func == 3){
+            ht2 = convert(4);
+        }
 	// bf related
 	int bf_sf = 10; // bits per item
 	bf_index = 7; // bf_index == 1
@@ -158,8 +158,10 @@ int main(int argc, char * argv[])
 	string file_result = filename + "result.txt";
 	ofstream result_file(file_result);
 
-	result_file << num_n << " " << (num_fp+num_tp) << endl;
-	result_file << "false positives : " << num_fp << " " << (float)num_fp/(num_n+num_fp) << endl;
+	//result_file << num_n << " " << (num_fp+num_tp) << endl;
+	if(fpr){
+	    result_file << "false positives : " << num_fp << " " << (float)num_fp/(num_n+num_fp) << endl;
+	}
 	result_file << endl;
 
 	result_file << "hash   : " << hash_duration.count() << endl;
@@ -208,6 +210,7 @@ HashType convert(int in)
     else if(in == 4) return XXhash;
     else if(in == 5) return CRC;
     else if(in == 6) return CITY;
+    return MurMur64;
 }
 
 
@@ -215,7 +218,7 @@ bool Get(string & key){
     bool result = true;
     uint64_t digest1;
     uint64_t digest2;
-    //auto hash_start = high_resolution_clock::now(); 
+    auto hash_start = high_resolution_clock::now(); 
     if(hash_mode == 1){
 	digest1 = BFHash::get_hash_digest( key, ht1, 0xbc9f1d34);
 	get_index(digest1, bf_index, bf_size, bf_ind );
@@ -228,14 +231,14 @@ bool Get(string & key){
 	}	
     }else{
 	int j = 0;
-        for(auto ht: { MD5, MurMurhash, CRC, XXhash, MurMur64, SHA2}){
+        for(auto ht: { MD5, MurMurhash, CRC, XXhash, MurMur64, SHA2, CITY}){
 	    digest1 = BFHash::get_hash_digest( key, ht, 0xbc9f1d34);
 	    bf_ind[j++] = digest1%bf_size; 
 	}
 
     }
-    //auto hash_end = high_resolution_clock::now(); 
-    //hash_duration += duration_cast<microseconds>(hash_end - hash_start);
+    auto hash_end = high_resolution_clock::now(); 
+    hash_duration += duration_cast<microseconds>(hash_end - hash_start);
 
     
     result = true;
@@ -247,7 +250,7 @@ bool Get(string & key){
 	    break;
     	}
     }
-    if ( result==true ){
+    if ( result==true && fpr){
 	vector<string>::iterator iter;
         iter = find(table_in.begin(), table_in.end(), key);
 

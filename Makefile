@@ -1,9 +1,9 @@
 
 CCOMPILE=g++
-CPPFLAGS=-std=c++11 -I -msse4.2
+CPPFLAGS=-std=c++11 -I -msse4.2 
 LDFLAGS= -Wno-deprecated
 #pf_LDFLAGS= -Wno-deprecated -O3 -fprefetch-loop-arrays
-pf_LDFLAGS= -Wno-deprecated -O3
+pf_LDFLAGS= -Wno-deprecated
 
 
 all: lsm_emu

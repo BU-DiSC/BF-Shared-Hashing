@@ -25,8 +25,7 @@ public:
   bool elastic_filters;
   int num_filterunits;
   bool fastlocal_bf;
-  bool xxhash;
-  bool cityhash;
+  string hash_type;
 
 
   // share hash

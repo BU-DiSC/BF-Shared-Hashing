@@ -24,8 +24,7 @@ int options::parse( int argc, char *argv[] )
   args::ValueFlag<int> bits_per_key_cmd(group1, "bits_per_key", "The number of bits per key assigned to Bloom filter [def: 10]", {'b', "bits_per_key"});
   args::Flag elastic_filters_cmd(group1, "elastic_bf", "Enable elastic filters. ", {"elastic", "enable_elastic_filters"});
   args::Flag fastlocal_bf_cmd(group1, "fastlocal_bf", "Enable FastLocal Bloom filters. [def: false]", {"FLBF", "enable_fast_local_filters"});
-  args::Flag xxhash_cmd(group1, "xxhash", "Enable XXHash. [def: false]", {"XX", "enable_xxhash"});
-  args::Flag cityhash_cmd(group1, "cityhash", "Enable CITY Hash (depcrecated by XXHash). [def: false]", {"CITY", "enable_cityhash"});
+  args::ValueFlag<std::string> hash_type_cmd(group1, "Hash Type", "Hash type MM64, XXHash, CRC or CITY [def: MM64]", {"HT", "hash_type"});
   args::ValueFlag<int> num_filterunits_cmd(group1, "num_funit", "The number of filter units for elastic filter. [def: 2] ", {"num_funit", "num_filter_units"});
 
   args::Flag share_hash_across_levels_cmd(group1, "shared_hash_level", "Enable sharing hash across levels ", {"lvl_share_hash", "enable_leveled_shared_hashing"});
@@ -74,8 +73,7 @@ int options::parse( int argc, char *argv[] )
 
   bits_per_key = bits_per_key_cmd? args::get(bits_per_key_cmd) : 10;
   fastlocal_bf = fastlocal_bf_cmd? args::get(fastlocal_bf_cmd) : false;
-  xxhash = xxhash_cmd ? args::get(xxhash_cmd) : false;
-  cityhash = cityhash_cmd ? args::get(cityhash_cmd) : false;
+  hash_type = hash_type_cmd? args::get(hash_type_cmd) : "MM64";
   elastic_filters = elastic_filters_cmd? args::get(elastic_filters_cmd) : false;
   num_filterunits = num_filterunits_cmd? args::get(num_filterunits_cmd) : 2;
   if(!elastic_filters){

@@ -2,7 +2,7 @@
 CCOMPILE=g++
 CPPFLAGS=-std=c++11 -I -msse4.2 -O3
 LDFLAGS= -Wno-deprecated
-pf_LDFLAGS= -Wno-deprecated 
+pf_LDFLAGS= -Wno-deprecated -O3
 
 
 all: micro1 micro2

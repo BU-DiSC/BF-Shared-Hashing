@@ -19,6 +19,8 @@ int bf_size;
 unsigned char* bf;
 int* bf_ind;
 
+
+bool fpr;
 // get starting timepoint
 fsec hash_duration = std::chrono::microseconds::zero();
 fsec total_duration = std::chrono::microseconds::zero();
@@ -33,12 +35,13 @@ bool Get(string & key);
 
 int main(int argc, char * argv[])
 {
-	if ( argc>5 ){
+	if ( argc>6 ){
 		cout << "Error : requres 2 arguments." << endl;
 		cout << "   > argv[1] : output folder" << endl;
 		cout << "   > argv[2] : hash mode (0:share, 1:multi)" << endl;
 		cout << "   > argv[3] : infile" << endl;
 		cout << "   > argv[4] : queryfile" << endl;
+		cout << "   > argv[5] : calculate FPR (0: no, 1:yes)" << endl;
 		return 0;
 	}
 
@@ -61,6 +64,7 @@ int main(int argc, char * argv[])
 
 	string file_in_set  = (argc>3)? argv[3] : "in/in_set.txt";
 	string file_out_set = (argc>4)? argv[4] : "in/out_set.txt";
+	fpr = (argc>5)? atoi(argv[5]): 0;
 
 	int in_size = 0;
 	int out_size = 0;
@@ -132,8 +136,10 @@ int main(int argc, char * argv[])
 	string file_result = filename + "result.txt";
 	ofstream result_file(file_result);
 
-	result_file << num_n << " " << (num_fp+num_tp) << endl;
-	result_file << "false positives : " << num_fp << " " << (float)num_fp/(num_n+num_fp) << endl;
+	//result_file << num_n << " " << (num_fp+num_tp) << endl;
+	if(fpr){
+	    result_file << "false positives : " << num_fp << " " << (float)num_fp/(num_n+num_fp) << endl;
+	}
 	result_file << endl;
 
 	result_file << "hash   : " << hash_duration.count() << endl;
@@ -179,13 +185,14 @@ HashType convert(int in)
     else if(in == 4) return XXhash;
     else if(in == 5) return CRC;
     else if(in == 6) return CITY;
+    return MurMur64;
 }
 
 
 bool Get(string & key){
     bool result = true;
     uint64_t digest;
-    	//auto hash_time_start = high_resolution_clock::now(); 
+    	auto hash_time_start = high_resolution_clock::now(); 
     for ( int j=hash_start ; j<hash_end ; j++ ) {
 	HashType ht = convert(j);
 	digest = BFHash::get_hash_digest( key, ht, 0xbc9f1d34);
@@ -197,8 +204,8 @@ bool Get(string & key){
     if ( hash_mode<7 ){
 	get_index(digest, bf_index, bf_size, bf_ind );
     }
-    	//auto hash_time_end = high_resolution_clock::now(); 
-    	//hash_duration += duration_cast<microseconds>(hash_time_end - hash_time_start);
+    	auto hash_time_end = high_resolution_clock::now(); 
+    	hash_duration += duration_cast<microseconds>(hash_time_end - hash_time_start);
     result = true;
     bool inc = false;
     for( int k=0 ; k<bf_index ; k++ ){
@@ -211,7 +218,7 @@ bool Get(string & key){
     	}
 
     }
-    if ( result==true ){
+    if ( result==true && fpr){
 	vector<string>::iterator iter;
         iter = find(table_in.begin(), table_in.end(), key);
 

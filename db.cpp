@@ -81,10 +81,12 @@ db::db( options op )
         BFHash::reset = false;
     }
     BFHash::share_hash_across_filter_units_ = op.share_hash_across_filter_units;
-    if(op.xxhash){
+    if(op.hash_type.compare("XXHash") == 0){
        BFHash::prepareHashFuncs(XXhash);
-    }else if(op.cityhash){
+    }else if(op.hash_type.compare("CITY") == 0){
        BFHash::prepareHashFuncs(CITY);
+    }else if(op.hash_type.compare("CRC") == 0){
+       BFHash::prepareHashFuncs(CRC);
     }else{
        BFHash::prepareHashFuncs(MurMur64);
     }
@@ -355,10 +357,10 @@ inline string db::GetLevel( int i, BFHash & bfHash, string & key, bool * result 
 		//other_duration += duration_cast<microseconds>(other_end - other_start);
 		return "";
 	}
-	//auto hash_start = high_resolution_clock::now();
+	auto hash_start = high_resolution_clock::now();
 	vector<uint64_t>* hash_digests = bfHash.getLevelwiseHashDigest(i);
-	//auto hash_end = high_resolution_clock::now();
-	//hash_duration += duration_cast<microseconds>(hash_end - hash_start);	
+	auto hash_end = high_resolution_clock::now();
+	hash_duration += duration_cast<microseconds>(hash_end - hash_start);	
 
 
 	bool bf_result = QueryFilter( i, bf_no, hash_digests, bf_prime[i][bf_no]);
@@ -844,8 +846,8 @@ void db::PrintStat()
 	result_file << "Total query time:\t" << total  << endl;
 	total -= data_duration.count()/tries;
 	result_file << "Data access time:\t" << data_duration.count()/tries << endl;
-	//total -= hash_duration.count()/tries;
-	//result_file << "Hash time:\t" << hash_duration.count()/tries << endl;
+	total -= hash_duration.count()/tries;
+	result_file << "Hash time:\t" << hash_duration.count()/tries << endl;
 	result_file << "Other time:\t" << total << endl;
 	//cout << "Other2 time:\t" << other2_duration.count()/tries << endl;
 	
