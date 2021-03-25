@@ -64,6 +64,7 @@ private:
 	fsec total_duration = std::chrono::microseconds::zero();
 	fsec data_duration = std::chrono::microseconds::zero();
 	fsec hash_duration = std::chrono::microseconds::zero();
+	fsec bs_duration = std::chrono::microseconds::zero();
 
 	uint64_t total_n = 0;
 	uint64_t total_p = 0;
@@ -118,7 +119,7 @@ private:
 	int binary_search(string key, char** indexes, int size);
 
 	void SetTreeParam();
-	void loadBFAndIndex();
+	fsec loadBFAndIndex();
 
-	void PrintStat();
+	void PrintStat(double program_total=0.0, double data_load_total=0.0);
 };

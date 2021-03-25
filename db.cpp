@@ -346,7 +346,10 @@ string db::Get( string key, bool * result )
 inline string db::GetLevel( int i, BFHash & bfHash, string & key, bool * result )
 {
 	// Binary search for fense pointer
+	//auto bs_start = high_resolution_clock::now();
 	int bf_no = binary_search(key, fence_pointers[i]);
+	//auto bs_end = high_resolution_clock::now();
+	//bs_duration += duration_cast<microseconds>(bs_end - bs_start);	
 
  		//auto other_start = high_resolution_clock::now();
 
@@ -357,10 +360,10 @@ inline string db::GetLevel( int i, BFHash & bfHash, string & key, bool * result 
 		//other_duration += duration_cast<microseconds>(other_end - other_start);
 		return "";
 	}
-	auto hash_start = high_resolution_clock::now();
+	//auto hash_start = high_resolution_clock::now();
 	vector<uint64_t>* hash_digests = bfHash.getLevelwiseHashDigest(i);
-	auto hash_end = high_resolution_clock::now();
-	hash_duration += duration_cast<microseconds>(hash_end - hash_start);	
+	//auto hash_end = high_resolution_clock::now();
+	//hash_duration += duration_cast<microseconds>(hash_end - hash_start);	
 
 
 	bool bf_result = QueryFilter( i, bf_no, hash_digests, bf_prime[i][bf_no]);
@@ -379,10 +382,7 @@ inline string db::GetLevel( int i, BFHash & bfHash, string & key, bool * result 
 	int index_pos = GetFromIndex( i, bf_no, key );
 
 	bool data_result = false;
-	auto data_start = high_resolution_clock::now();
 	string data = GetFromData( i, bf_no, index_pos, key, &data_result );
-	auto data_end = high_resolution_clock::now();
-	data_duration += duration_cast<microseconds>(data_end - data_start);	
 
 	// false positive
 	if (data_result == false){
@@ -448,7 +448,10 @@ inline string db::GetFromData( int i, int bf_no, int index_pos, string key, bool
 	string sst_data_filename = data_dir + "level_" + to_string(i) + "-sst_" + to_string(bf_no) + ".txt";
 
 	
+	//auto data_start = high_resolution_clock::now();
 	read_data( sst_data_filename, index_pos, key.size(), data_block );
+	//auto data_end = high_resolution_clock::now();
+	//data_duration += duration_cast<microseconds>(data_end - data_start);	
 	int found = -1;
 	for ( int k=0 ; k<data_block.size() ; k++){
 		string data_entry = data_block[k].substr( 0, key.size() );
@@ -478,28 +481,31 @@ inline int db::read_data ( string filename, int pos, int key_size, vector<string
 		return 0;
 	}
       
-	char* buf;
-	posix_memalign((void**)&buf,getpagesize(),DB_PAGE_SIZE);
-	memset(buf, 0, DB_PAGE_SIZE);
-
 	data_block.clear();
 	data_block.resize(B, "");
 
-	//auto data_start = high_resolution_clock::now();
+	char* buf;
+	int offset = pos*B*E;
+
+
+	auto data_start = high_resolution_clock::now();
+	posix_memalign((void**)&buf,getpagesize(),DB_PAGE_SIZE);
+	memset(buf, 0, DB_PAGE_SIZE);
+
+
 	//read( fd, buf, DB_PAGE_SIZE );
 	//auto data_end   = high_resolution_clock::now();
 	//data_duration += duration_cast<microseconds>(data_end - data_start);
 
       
-	int offset = pos*B*E;
     // Moving pointer
 	lseek( fd, DB_PAGE_SIZE+offset, SEEK_SET );
 
 	memset(buf, 0, DB_PAGE_SIZE);
 	//data_start = high_resolution_clock::now();
 	read( fd, buf, DB_PAGE_SIZE );
-	//data_end   = high_resolution_clock::now();
-	//data_duration += duration_cast<microseconds>(data_end - data_start);
+	auto data_end   = high_resolution_clock::now();
+	data_duration += duration_cast<microseconds>(data_end - data_start);
 
 	//int key_size;
 	int entry_size = E;
@@ -514,10 +520,10 @@ inline int db::read_data ( string filename, int pos, int key_size, vector<string
 				inner_key_offset = DB_PAGE_SIZE-offset;
 			}
 		
-			//auto data_start = high_resolution_clock::now();
+			 data_start = high_resolution_clock::now();
 			read( fd, buf, DB_PAGE_SIZE );
-			//auto data_end   = high_resolution_clock::now();
-			//data_duration += duration_cast<microseconds>(data_end - data_start);
+			data_end   = high_resolution_clock::now();
+			data_duration += duration_cast<microseconds>(data_end - data_start);
 
 			offset = key_size - inner_key_offset;	
 			memcpy(tmp_buf+inner_key_offset, buf, offset);
@@ -537,10 +543,13 @@ inline int db::read_data ( string filename, int pos, int key_size, vector<string
 	close( fd );
 
         if(delay > 0){
+			 data_start = high_resolution_clock::now();
 	    struct timespec req = {0}; 
             req.tv_sec = 0;
 	    req.tv_nsec = delay;
 	    nanosleep(&req, (struct timespec *)NULL);
+			data_end   = high_resolution_clock::now();
+			data_duration += duration_cast<microseconds>(data_end - data_start);
 	}
 		
 	return 0;
@@ -672,7 +681,7 @@ void db::split_keys( vector<string> table_in, vector<vector<vector<string> > > &
 	SetTreeParam();
 }
 
-void db::loadBFAndIndex(){
+fsec db::loadBFAndIndex(){
 	fp_vec = vector<uint64_t> (num_levels, 0);
 	n_vec = vector<uint64_t> (num_levels, 0);
 	bf_prime = (char****) malloc  ( num_levels * sizeof(char***));
@@ -689,6 +698,9 @@ void db::loadBFAndIndex(){
         	num_probes = bf.num_probes_;
 	}
 	int tmp_filter_size = filter_size;
+	auto l_start = high_resolution_clock::now();
+	auto l_end = high_resolution_clock::now();
+	fsec load_duration = std::chrono::microseconds::zero();
 	for(int i = 0; i < num_levels; i++){
 		bf_prime[i] = (char***) malloc (num_sstPerLevel[i]*sizeof(char**));
 		blk_fp_prime[i] = (char***) malloc (num_sstPerLevel[i]*sizeof(char**));
@@ -696,12 +708,20 @@ void db::loadBFAndIndex(){
 
 		for(int j = 0; j < num_sstPerLevel[i]; j++){
 			string sst_index_filename = index_dir + "level_" + to_string(i) + "-sst_" + to_string(j) + ".txt";
+			l_start = high_resolution_clock::now();
 			int index_size = read_index_size(sst_index_filename);	
+			l_end = high_resolution_clock::now();
+			load_duration += duration_cast<microseconds>(l_end - l_start);
+
 			char** index = (char**) malloc((index_size+1)*sizeof(char*));
 			for(int k = 0; k <= index_size; k++){
 				index[k] = (char*) malloc ((K+1)*sizeof(char));
 			}
+			l_start = high_resolution_clock::now();
 			read_index(sst_index_filename, index_size, index);
+			l_end = high_resolution_clock::now();
+			load_duration += duration_cast<microseconds>(l_end - l_start);
+
 			blk_fp_prime[i][j] = index;
 			blk_size_prime[i][j] = index_size;
 
@@ -725,13 +745,16 @@ void db::loadBFAndIndex(){
 			for(int k = 0; k < num_filter_units; k++){
 				string sst_bf_filename = bf_dir + "level_" + to_string(i) + "-sst_" + to_string(j) + "_" + to_string(k) + ".txt";
 				char* blo_bf = (char*) malloc (tmp_filter_size*sizeof(char));
+				l_start = high_resolution_clock::now();
 				read_bf(sst_bf_filename, blo_bf, tmp_filter_size);
+				l_end = high_resolution_clock::now();
+				load_duration += duration_cast<microseconds>(l_end - l_start);
 				sst_bf[k] = blo_bf;
 			}
 			bf_prime[i][j] = sst_bf;
 		}
 	}
-
+	return load_duration;
 }
 
 void db::SetTreeParam()
@@ -832,7 +855,7 @@ void db::flushfile( string filename, vector<string>* table){
 }
 
 
-void db::PrintStat()
+void db::PrintStat(double program_total, double data_load_total)
 {
 	// log file
 	string out_path_cmd = "mkdir -p " + out_path;
@@ -846,8 +869,12 @@ void db::PrintStat()
 	result_file << "Total query time:\t" << total  << endl;
 	total -= data_duration.count()/tries;
 	result_file << "Data access time:\t" << data_duration.count()/tries << endl;
+	result_file << "Program total time:\t" << program_total/tries << endl;
+	result_file << "Data input time:\t" << data_load_total/tries << endl;
 	total -= hash_duration.count()/tries;
 	result_file << "Hash time:\t" << hash_duration.count()/tries << endl;
+	//total -= bs_duration.count()/tries;
+	//result_file << "BS time:\t" << bs_duration.count()/tries << endl;
 	result_file << "Other time:\t" << total << endl;
 	//cout << "Other2 time:\t" << other2_duration.count()/tries << endl;
 	

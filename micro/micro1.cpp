@@ -64,7 +64,7 @@ int main(int argc, char * argv[])
 
 	string file_in_set  = (argc>3)? argv[3] : "in/in_set.txt";
 	string file_out_set = (argc>4)? argv[4] : "in/out_set.txt";
-	fpr = (argc>5)? atoi(argv[5]): 0;
+	fpr = (argc>5)? atoi(argv[5]): false;
 
 	int in_size = 0;
 	int out_size = 0;
@@ -142,7 +142,7 @@ int main(int argc, char * argv[])
 	}
 	result_file << endl;
 
-	result_file << "hash   : " << hash_duration.count() << endl;
+	//result_file << "hash   : " << hash_duration.count() << endl;
 	result_file << "total  : " << total_duration.count() << endl;
 	result_file << "other  : " << total_duration.count() - hash_duration.count() << endl;
 	result_file.close();
@@ -192,7 +192,7 @@ HashType convert(int in)
 bool Get(string & key){
     bool result = true;
     uint64_t digest;
-    	auto hash_time_start = high_resolution_clock::now(); 
+    	//auto hash_time_start = high_resolution_clock::now(); 
     for ( int j=hash_start ; j<hash_end ; j++ ) {
 	HashType ht = convert(j);
 	digest = BFHash::get_hash_digest( key, ht, 0xbc9f1d34);
@@ -204,8 +204,8 @@ bool Get(string & key){
     if ( hash_mode<7 ){
 	get_index(digest, bf_index, bf_size, bf_ind );
     }
-    	auto hash_time_end = high_resolution_clock::now(); 
-    	hash_duration += duration_cast<microseconds>(hash_time_end - hash_time_start);
+    	//auto hash_time_end = high_resolution_clock::now(); 
+    	//hash_duration += duration_cast<microseconds>(hash_time_end - hash_time_start);
     result = true;
     bool inc = false;
     for( int k=0 ; k<bf_index ; k++ ){

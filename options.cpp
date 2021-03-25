@@ -6,7 +6,7 @@ using namespace std;
 
 int options::parse( int argc, char *argv[] )
 {
-  args::ArgumentParser parser("ModBF_parser.", "");
+  args::ArgumentParser parser("lsm-emu_parser.", "");
   args::Group group1(parser, "This group is all exclusive:", args::Group::Validators::DontCare);
 
   // path info

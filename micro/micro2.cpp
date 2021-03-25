@@ -218,7 +218,7 @@ bool Get(string & key){
     bool result = true;
     uint64_t digest1;
     uint64_t digest2;
-    auto hash_start = high_resolution_clock::now(); 
+    //auto hash_start = high_resolution_clock::now(); 
     if(hash_mode == 1){
 	digest1 = BFHash::get_hash_digest( key, ht1, 0xbc9f1d34);
 	get_index(digest1, bf_index, bf_size, bf_ind );
@@ -237,8 +237,8 @@ bool Get(string & key){
 	}
 
     }
-    auto hash_end = high_resolution_clock::now(); 
-    hash_duration += duration_cast<microseconds>(hash_end - hash_start);
+    //auto hash_end = high_resolution_clock::now(); 
+    //hash_duration += duration_cast<microseconds>(hash_end - hash_start);
 
     
     result = true;

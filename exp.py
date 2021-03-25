@@ -1,6 +1,7 @@
 import os, sys
 
 HASH_FUNCTIONS = {'BFHash::getLevelwiseHashDigest'}
+#HASH_FUNCTIONS = {'MurmurHash64A','ROCKSDB_XXH64','CityHash64'}
 
 def find_fst_percent(line):
 	start = -1
@@ -23,7 +24,7 @@ if __name__ == '__main__':
 		
 		os.system(command)
 		f = open("out/result.txt")
-		total_data_pair = [0,0,0]
+		total_data_pair = [0,0,0,0,0]
 		for line in f:
 			tmp = line.strip().split(":")
 			if tmp[0] == "Total query time":
@@ -32,6 +33,10 @@ if __name__ == '__main__':
 				total_data_pair[1] = float(tmp[1].strip())
 			elif tmp[0] == "FPR":
 				total_data_pair[2] = float(tmp[1].strip())
+			elif tmp[0] == "Program total time":
+				total_data_pair[3] = float(tmp[1].strip())
+			elif tmp[0] == "Data input time":
+				total_data_pair[4] = float(tmp[1].strip())
 		raw_data.append(total_data_pair)	
 		f.close()
 		os.system("perf record -g " + command)
@@ -57,14 +62,13 @@ if __name__ == '__main__':
 				start,end = find_fst_percent(l)		
 				if end == 0:
 					break
-				hash_bs_triples[4] = float(l[start:end])*0.01
+				hash_bs_triples[4] = float(l[start:end])*0.01 
 			elif '[.] db::QueryFilter' in line and hash_bs_triples[3] == 0:
 				l = line.strip()
 				start,end = find_fst_percent(l)		
 				if end == 0:
 					break
-				hash_bs_triples[3] = float(l[start:end])*0.01
-
+				hash_bs_triples[3] = float(l[start:end])*0.01		
 			elif hash_bs_triples[0] == 0:
 				for h_str in HASH_FUNCTIONS:	
 					tmp = '[.] ' + h_str
@@ -72,25 +76,30 @@ if __name__ == '__main__':
 						l = line.strip()
 						start,end = find_fst_percent(l)
 						hash_bs_triples[0] = float(l[start:end])*0.01
-						break
-			if hash_bs_triples[0] != 0 and hash_bs_triples[1] != 0 and hash_bs_triples[2] != 0 and hash_bs_triples[3] != 0 and hash_bs_triples[4] != 0:
+			if hash_bs_triples[0] != 0 and hash_bs_triples[1] != 0 and hash_bs_triples[2] != 0 and hash_bs_triples[3] != 0 and hash_bs_triples[4] != 0:	
 				break
 		perf_data.append(hash_bs_triples)
 		f.close()
 		os.system("rm -rf tmp.txt")
 	print(perf_data)
 	print(raw_data)
-	total = 0
+	get_total = 0
 	data = 0
 	total_fpr = 0.0
-	for t, d, fpr in raw_data:
-		total += t
+	program_total = 0.0
+	input_total = 0.0
+	for t, d, fpr, pt, it in raw_data:
+		get_total += t
 		data += d
 		total_fpr += fpr
+		program_total += pt
+		input_total += it
+	program_total = program_total/tries	
+	input_total = input_total/tries
 	print("FPR : " + str(total_fpr/tries))
 	data = data/tries
 	print("Average Data Access : " + str(data))
-	total = total/tries
+	total = program_total - input_total - data
 	
 	#print(total)
 	ah = 0.0
@@ -104,13 +113,13 @@ if __name__ == '__main__':
 		at += tt
 		af += f
 		adc += dc
-	T = (total - data)/(1-adc/tries)
+	T = (get_total/tries - data)/(at/tries-adc/tries)
 	ht = (T*ah)/tries
 	bst = (T*ab)/tries
 	ft = (T*af)/tries
 	print("Average Hash : " + str(ht))
 	print("Average BS : " + str(bst))
 	print("Average QueryFilter : " + str(ft))
-	print("Average Others : " + str(T*at/tries - ht - bst - ft))
+	print("Average Others : " + str(get_total/tries - ht - bst - data -ft))
 	
 						

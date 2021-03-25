@@ -23,10 +23,13 @@ using namespace std;
 
 #define DB_PAGE_SIZE 4096
 
+fsec load_duration = std::chrono::microseconds::zero();
+
 void loadfile( string filename, vector<string>* table, int* num );
 
 int main(int argc, char * argv[])
 {
+	auto t_start = high_resolution_clock::now();
 	options op;
 	// parse the command line arguments
 	if ( op.parse(argc, argv) ) {
@@ -46,8 +49,10 @@ int main(int argc, char * argv[])
 
 	int S_size = 0;
 	int SC_size = 0;
-
+	auto l_start = high_resolution_clock::now();
 	loadfile( file_out_set, &table_out, &SC_size );
+	auto l_end = high_resolution_clock::now();
+	load_duration += duration_cast<microseconds>(l_end - l_start);
 
 	op.key_size = table_out.at(0).size();
 	// -------------------------------------------------------------------------------------
@@ -73,7 +78,7 @@ int main(int argc, char * argv[])
 	}
 	else {
 		database.SetTreeParam();
-		database.loadBFAndIndex();
+		load_duration += database.loadBFAndIndex();
 	}
 	cout << "DB has been loaded" << endl; 
 	// ------------------------------------------------------------------------------
@@ -108,7 +113,9 @@ int main(int argc, char * argv[])
 	
 	// ------------------------------------------------------------------------------
 		// log file
-	database.PrintStat();
+	auto t_end = high_resolution_clock::now();
+	fsec t_duration = duration_cast<std::chrono::microseconds>(t_end-t_start);
+	database.PrintStat(t_duration.count(), load_duration.count());
 	return temp;
 }
 
