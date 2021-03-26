@@ -1,6 +1,6 @@
 ### LSM-Tree Emulation
 
-Run `make` and you can execute lsm-emu which receives parameters as follows:A
+Run `make` and you can execute lsm-emu which receives parameters as follows:
 
   OPTIONS:
 
