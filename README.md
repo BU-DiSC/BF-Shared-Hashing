@@ -1,4 +1,11 @@
-### LSM-Tree Emulation
+<H1> LSM-Tree Emulation </H1>
+
+
+This repository contains an LSM emulator that was used to run the experiments for our latest work: ["Reducing Bloom Filter CPU Overhead in LSM-Trees on Modern Storage Devices"](http://cs-people.bu.edu/mathan/publications/damon21-zhu.pdf). 
+
+In this work, we observe that as we move to faster storage devices, hashing for BFs in LSM-trees becomes a key performance bottleneck. We address this by decoupling the hashing overhead from the number of distinct levels in the tree (and, as a result, the data size), by sharing a single hash digest across different levels. Our technique reduces the fraction of time spent on hashing during lookups and leads to performance benefits varying from 10% for our PCIe SSD to more than 40% for an emulated NVM. T
+
+---
 
 Run `make` and you can execute lsm-emu which receives parameters as follows:
 
